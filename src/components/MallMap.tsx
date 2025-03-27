@@ -1,14 +1,14 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { Box, Typography } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Typography, Paper, Tooltip, Zoom, Button, TooltipProps } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Store, Facility, Floor, Path } from '../types';
+import { Store, Facility } from '../types';
 
 const MapContainer = styled(Box)(({ theme }) => ({
   width: '100%',
   height: '100%',
   position: 'relative',
+  backgroundColor: theme.palette.background.default,
+  overflow: 'hidden',
 }));
 
 const DetailsBox = styled(Box)(({ theme }) => ({
@@ -20,6 +20,7 @@ const DetailsBox = styled(Box)(({ theme }) => ({
   padding: theme.spacing(2),
   borderRadius: theme.shape.borderRadius,
   boxShadow: theme.shadows[3],
+  maxWidth: '300px',
   '& .MuiTypography-root': {
     color: theme.palette.text.primary,
   },
@@ -28,8 +29,230 @@ const DetailsBox = styled(Box)(({ theme }) => ({
   }
 }));
 
-// Position representing the current user location
-const USER_POSITION = { x: 0, y: 0, z: 8 };
+const FloorMap = styled(Box)(({ theme }) => ({
+  width: '100%',
+  height: '100%',
+  position: 'relative',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+}));
+
+const MapBorder = styled(Box)(({ theme }) => ({
+  border: `2px solid ${theme.palette.divider}`,
+  borderRadius: theme.shape.borderRadius,
+  padding: theme.spacing(1),
+  maxWidth: '90%',
+  maxHeight: '90%',
+  width: '1000px',
+  height: '700px',
+  position: 'relative',
+  backgroundColor: theme.palette.background.paper,
+  boxShadow: theme.shadows[4],
+  overflow: 'hidden',
+}));
+
+const FloorImageContainer = styled(Box)({
+  width: '100%',
+  height: '100%',
+  position: 'relative',
+  overflow: 'hidden',
+});
+
+const FloorImage = styled('img')({
+  width: '100%',
+  height: '100%',
+  objectFit: 'contain',
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  zIndex: 1,
+});
+
+const MarkersContainer = styled(Box)({
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: '100%',
+  height: '100%',
+  zIndex: 2,
+  pointerEvents: 'none', // Allow clicking through to the image underneath
+});
+
+const MapHotspot = styled(Box)(({ theme }) => ({
+  position: 'absolute',
+  borderRadius: '50%',
+  backgroundColor: 'rgba(33, 150, 243, 0.3)',
+  border: '2px solid rgba(33, 150, 243, 0.7)',
+  cursor: 'pointer',
+  transition: 'transform 0.2s, box-shadow 0.2s',
+  transform: 'translate(-50%, -50%)',
+  zIndex: 5,
+  '&:hover': {
+    transform: 'translate(-50%, -50%) scale(1.1)',
+    boxShadow: theme.shadows[2],
+  },
+  pointerEvents: 'auto', // Override parent container's pointerEvents
+}));
+
+const FacilityHotspot = styled(MapHotspot)(({ theme }) => ({
+  backgroundColor: 'rgba(245, 0, 87, 0.3)',
+  border: '2px solid rgba(245, 0, 87, 0.7)',
+}));
+
+const StoreTooltip = (props: {
+  title: React.ReactNode;
+  placement?: TooltipProps['placement'];
+  arrow?: boolean;
+  TransitionComponent?: React.ComponentType<any>;
+  children: React.ReactElement;
+  [key: string]: any;
+}) => {
+  const { children, ...tooltipProps } = props;
+  
+  return (
+    <Tooltip {...tooltipProps}>
+      {children}
+    </Tooltip>
+  );
+};
+
+const FloorNavigation = styled(Box)(({ theme }) => ({
+  position: 'absolute',
+  right: theme.spacing(2),
+  top: '50%',
+  transform: 'translateY(-50%)',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.spacing(1),
+  zIndex: 10,
+}));
+
+const NavigationButton = styled(Button)(({ theme }) => ({
+  minWidth: '50px',
+  width: '50px',
+  height: '50px',
+  borderRadius: '50%',
+  padding: 0,
+  boxShadow: theme.shadows[2],
+}));
+
+const FloorLabel = styled(Typography)(({ theme }) => ({
+  position: 'absolute',
+  top: theme.spacing(1),
+  left: theme.spacing(2),
+  fontWeight: 'bold',
+  fontSize: '1.5rem',
+  color: theme.palette.text.primary,
+  zIndex: 5,
+}));
+
+const YouAreHereMarker = styled(Box)(({ theme }) => ({
+  position: 'absolute',
+  width: 40,
+  height: 40,
+  backgroundColor: '#F44336',
+  transform: 'translate(-50%, -50%)',
+  zIndex: 6,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  boxShadow: theme.shadows[3],
+  animation: 'pulse 2s infinite',
+  '@keyframes pulse': {
+    '0%': {
+      boxShadow: '0 0 0 0 rgba(244, 67, 54, 0.7)'
+    },
+    '70%': {
+      boxShadow: '0 0 0 10px rgba(244, 67, 54, 0)'
+    },
+    '100%': {
+      boxShadow: '0 0 0 0 rgba(244, 67, 54, 0)'
+    }
+  }
+}));
+
+// Mapping between store categories and marker sizes/colors
+const storeTypeConfig = {
+  food: {
+    color: 'error.main',
+    size: 24,
+  },
+  fashion: {
+    color: 'primary.main',
+    size: 24,
+  },
+  electronics: {
+    color: 'secondary.main',
+    size: 24,
+  },
+  services: {
+    color: 'success.main',
+    size: 24,
+  },
+  default: {
+    color: 'info.main', 
+    size: 24,
+  }
+};
+
+// Mapping between facility types and marker sizes/colors
+const facilityTypeConfig = {
+  elevator: {
+    color: 'success.main', 
+    size: 30,
+    symbol: '⬆︎' 
+  },
+  toilet: {
+    color: 'info.main',
+    size: 30,
+    symbol: 'WC'
+  },
+  parking: {
+    color: 'secondary.main',
+    size: 30,
+    symbol: 'P'
+  },
+  entrance: {
+    color: 'warning.main',
+    size: 30,
+    symbol: '⤭'
+  },
+  default: {
+    color: 'grey.500',
+    size: 30,
+    symbol: '•'
+  }
+};
+
+// Floor plan images for each floor
+const floorImages = {
+  1: './images/default-floor.svg',
+  2: './images/default-floor.svg',
+  3: './images/default-floor.svg',
+};
+
+// Default floor image if specific floor not found
+const defaultFloorImage = './images/default-floor.svg';
+
+// Convert 3D position to display position on the map
+const getMapPosition = (item: Store | Facility): { top: number, left: number } => {
+  // Map x and z coordinates to percentage positions
+  // Assuming original 3D coordinates are in the range [-15, 15]
+  const x = item.position.x;
+  const z = item.position.z;
+  
+  // Normalize from 3D space to floor map canvas space
+  // These values should be calibrated based on your specific floor map layout
+  const leftPos = ((x + 15) / 30) * 850 + 75; // Map to 75-925px range horizontally
+  const topPos = ((z + 15) / 30) * 550 + 75;  // Map to 75-625px range vertically
+  
+  return {
+    top: topPos,
+    left: leftPos
+  };
+};
 
 interface MallMapProps {
   currentFloor: number;
@@ -37,7 +260,10 @@ interface MallMapProps {
   facilities: Facility[];
   onStoreSelect: (store: Store) => void;
   onFacilitySelect: (facility: Facility) => void;
+  onFloorChange: (floor: number) => void;
   isTouchDevice?: boolean;
+  userLocation?: { x: number, y: number, floor: number };
+  setUserLocation?: (location: { x: number, y: number, floor: number }) => void;
 }
 
 const MallMap: React.FC<MallMapProps> = ({
@@ -46,419 +272,324 @@ const MallMap: React.FC<MallMapProps> = ({
   facilities,
   onStoreSelect,
   onFacilitySelect,
+  onFloorChange,
   isTouchDevice = false,
+  userLocation = { x: 0, y: 0, floor: 1 },
+  setUserLocation,
 }) => {
-  const mountRef = useRef<HTMLDivElement>(null);
   const [selectedItem, setSelectedItem] = useState<Store | Facility | null>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const controlsRef = useRef<OrbitControls | null>(null);
-  const storeObjectsRef = useRef<THREE.Mesh[]>([]);
-  const facilityObjectsRef = useRef<THREE.Mesh[]>([]);
-  const pathRef = useRef<THREE.Line | null>(null);
-  const userMarkerRef = useRef<THREE.Mesh | null>(null);
+  const [imageError, setImageError] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [isSettingLocation, setIsSettingLocation] = useState(false);
 
-  // Initialize scene
+  // Filter items for current floor
+  const storesOnFloor = stores.filter(store => store.floor === currentFloor);
+  const facilitiesOnFloor = facilities.filter(facility => facility.floor === currentFloor);
+
+  // Reset selected item when changing floors
   useEffect(() => {
-    if (!mountRef.current) return;
-
-    // Scene setup
-    const scene = new THREE.Scene();
-    sceneRef.current = scene;
-    scene.background = new THREE.Color(0xf0f0f0);
-
-    // Camera setup
-    const camera = new THREE.PerspectiveCamera(75, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
-    cameraRef.current = camera;
-    camera.position.set(0, 15, 20);
-    camera.lookAt(0, 0, 0);
-
-    // Renderer setup
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    rendererRef.current = renderer;
-    renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    mountRef.current.appendChild(renderer.domElement);
-
-    // Controls setup
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controlsRef.current = controls;
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.25;
-    controls.maxPolarAngle = Math.PI / 2;
-
-    // Lighting setup
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
-
-    const pointLight1 = new THREE.PointLight(0xffffff, 0.8);
-    pointLight1.position.set(10, 10, 10);
-    scene.add(pointLight1);
-
-    const pointLight2 = new THREE.PointLight(0xffffff, 0.5);
-    pointLight2.position.set(-10, 10, -10);
-    scene.add(pointLight2);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    directionalLight.position.set(0, 10, 5);
-    scene.add(directionalLight);
-
-    // Create floor
-    const floorGeometry = new THREE.PlaneGeometry(30, 30);
-    const floorMaterial = new THREE.MeshStandardMaterial({ color: 0xf0f0f0 });
-    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-    floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    // Create grid
-    const gridHelper = new THREE.GridHelper(30, 30);
-    gridHelper.position.y = 0.01;
-    scene.add(gridHelper);
-
-    // Create walls
-    const wallMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xe0e0e0,
-      transparent: true,
-      opacity: 0.7
-    });
-
-    // Back wall
-    const backWallGeometry = new THREE.BoxGeometry(30, 10, 1);
-    const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
-    backWall.position.set(0, 5, -15);
-    scene.add(backWall);
-
-    // Front wall
-    const frontWallGeometry = new THREE.BoxGeometry(30, 10, 1);
-    const frontWall = new THREE.Mesh(frontWallGeometry, wallMaterial);
-    frontWall.position.set(0, 5, 15);
-    scene.add(frontWall);
-
-    // Left wall
-    const leftWallGeometry = new THREE.BoxGeometry(1, 10, 30);
-    const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
-    leftWall.position.set(-15, 5, 0);
-    scene.add(leftWall);
-
-    // Right wall
-    const rightWallGeometry = new THREE.BoxGeometry(1, 10, 30);
-    const rightWall = new THREE.Mesh(rightWallGeometry, wallMaterial);
-    rightWall.position.set(15, 5, 0);
-    scene.add(rightWall);
-
-    // Create user marker (current position)
-    const userGeometry = new THREE.ConeGeometry(0.5, 2, 32);
-    const userMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-    const userMarker = new THREE.Mesh(userGeometry, userMaterial);
-    userMarker.position.set(USER_POSITION.x, USER_POSITION.y + 1, USER_POSITION.z);
-    userMarker.rotation.x = Math.PI;
-    scene.add(userMarker);
-    userMarkerRef.current = userMarker;
-
-    // Add floor text
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 256;
-    const context = canvas.getContext('2d');
-    if (context) {
-      context.fillStyle = '#3f51b5';
-      context.strokeStyle = '#ffffff';
-      context.lineWidth = 6;
-      context.font = 'Bold 100px Arial';
-      context.textAlign = 'center';
-      context.strokeText(`FLOOR ${currentFloor}`, 256, 130);
-      context.fillText(`FLOOR ${currentFloor}`, 256, 130);
-      
-      const texture = new THREE.CanvasTexture(canvas);
-      const floorTextMaterial = new THREE.MeshBasicMaterial({
-        map: texture,
-        transparent: true,
-      });
-      const floorTextGeometry = new THREE.PlaneGeometry(10, 5);
-      const floorText = new THREE.Mesh(floorTextGeometry, floorTextMaterial);
-      floorText.position.set(0, 0.5, 0);
-      floorText.rotation.x = -Math.PI / 2;
-      scene.add(floorText);
-    }
-
-    // Animation loop
-    const animate = () => {
-      requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    };
-    animate();
-
-    // Handle resize
-    const handleResize = () => {
-      if (!mountRef.current) return;
-      camera.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
-    };
-    window.addEventListener('resize', handleResize);
-
-    // Cleanup function
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement);
-      }
-      renderer.dispose();
-    };
+    setSelectedItem(null);
+    setShowDetails(false);
   }, [currentFloor]);
 
-  // Update store and facility markers when they change
-  useEffect(() => {
-    if (!sceneRef.current) return;
-
-    // Remove previous store objects
-    storeObjectsRef.current.forEach(obj => sceneRef.current!.remove(obj));
-    storeObjectsRef.current = [];
-
-    // Create new store markers
-    const storeMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-    const storeGeometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
-
-    stores.forEach(store => {
-      const storeMesh = new THREE.Mesh(storeGeometry, storeMaterial);
-      storeMesh.position.set(store.position.x, store.position.y + 0.75, store.position.z);
-      storeMesh.userData = { type: 'store', id: store.id };
-      
-      // Create store label
-      const canvas = document.createElement('canvas');
-      canvas.width = 256;
-      canvas.height = 128;
-      const context = canvas.getContext('2d');
-      if (context) {
-        context.fillStyle = '#000000';
-        context.strokeStyle = '#ffffff';
-        context.lineWidth = 4;
-        context.font = 'Bold 24px Arial';
-        context.textAlign = 'center';
-        context.strokeText(store.name, 128, 64);
-        context.fillText(store.name, 128, 64);
-        
-        const texture = new THREE.CanvasTexture(canvas);
-        const labelMaterial = new THREE.MeshBasicMaterial({
-          map: texture,
-          transparent: true,
-          side: THREE.DoubleSide
-        });
-        const labelGeometry = new THREE.PlaneGeometry(3, 1.5);
-        const label = new THREE.Mesh(labelGeometry, labelMaterial);
-        label.position.set(0, 2.5, 0);
-        storeMesh.add(label);
-      }
-      
-      sceneRef.current!.add(storeMesh);
-      storeObjectsRef.current.push(storeMesh);
-    });
-  }, [stores]);
-
-  // Update facility markers
-  useEffect(() => {
-    if (!sceneRef.current) return;
-
-    // Remove previous facility objects
-    facilityObjectsRef.current.forEach(obj => sceneRef.current!.remove(obj));
-    facilityObjectsRef.current = [];
-
-    // Create new facility markers
-    const facilityGeometry = new THREE.CylinderGeometry(0.75, 0.75, 1.5, 32);
-
-    facilities.forEach(facility => {
-      let facilityMaterial;
-      
-      // Use different colors for different facility types
-      switch(facility.type) {
-        case 'elevator':
-          facilityMaterial = new THREE.MeshStandardMaterial({ color: 0x0000ff });
-          break;
-        case 'toilet':
-          facilityMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
-          break;
-        case 'parking':
-          facilityMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00 });
-          break;
-        case 'entrance':
-          facilityMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-          break;
-        default:
-          facilityMaterial = new THREE.MeshStandardMaterial({ color: 0x0000ff });
-      }
-      
-      const facilityMesh = new THREE.Mesh(facilityGeometry, facilityMaterial);
-      facilityMesh.position.set(facility.position.x, facility.position.y + 0.75, facility.position.z);
-      facilityMesh.userData = { type: 'facility', id: facility.id };
-      
-      // Create facility label
-      const canvas = document.createElement('canvas');
-      canvas.width = 256;
-      canvas.height = 128;
-      const context = canvas.getContext('2d');
-      if (context) {
-        context.fillStyle = '#000000';
-        context.strokeStyle = '#ffffff';
-        context.lineWidth = 4;
-        context.font = 'Bold 20px Arial';
-        context.textAlign = 'center';
-        context.strokeText(facility.name, 128, 64);
-        context.fillText(facility.name, 128, 64);
-        
-        const texture = new THREE.CanvasTexture(canvas);
-        const labelMaterial = new THREE.MeshBasicMaterial({
-          map: texture,
-          transparent: true,
-          side: THREE.DoubleSide
-        });
-        const labelGeometry = new THREE.PlaneGeometry(3, 1.5);
-        const label = new THREE.Mesh(labelGeometry, labelMaterial);
-        label.position.set(0, 2.5, 0);
-        facilityMesh.add(label);
-      }
-      
-      sceneRef.current!.add(facilityMesh);
-      facilityObjectsRef.current.push(facilityMesh);
-    });
-  }, [facilities]);
-
-  // Function to find path from user position to destination
-  const findPath = (destination: { x: number, y: number, z: number }): Path => {
-    // In a real app, this would use A* pathfinding or similar algorithm
-    // For simplicity, we'll just create a direct path with a midpoint
-    const midPoint = {
-      x: (USER_POSITION.x + destination.x) / 2,
-      y: 0,
-      z: (USER_POSITION.z + destination.z) / 2
-    };
-    
-    return {
-      points: [
-        { x: USER_POSITION.x, y: 0, z: USER_POSITION.z },
-        { x: midPoint.x, y: 0, z: midPoint.z },
-        { x: destination.x, y: 0, z: destination.z }
-      ],
-      instructions: [
-        `Start at your current position`,
-        `Move ${Math.round(Math.sqrt(
-          Math.pow(midPoint.x - USER_POSITION.x, 2) + 
-          Math.pow(midPoint.z - USER_POSITION.z, 2)
-        ))} meters ${midPoint.x > USER_POSITION.x ? 'east' : 'west'}`,
-        `Turn ${midPoint.z > destination.z ? 'north' : 'south'} and move ${Math.round(Math.sqrt(
-          Math.pow(destination.x - midPoint.x, 2) + 
-          Math.pow(destination.z - midPoint.z, 2)
-        ))} meters to reach your destination`
-      ]
-    };
+  const handleItemClick = (item: Store | Facility, type: 'store' | 'facility') => {
+    setSelectedItem(item);
+    setShowDetails(true);
+    if (type === 'store') {
+      onStoreSelect(item as Store);
+    } else {
+      onFacilitySelect(item as Facility);
+    }
   };
 
-  // Show path when an item is selected
-  useEffect(() => {
-    if (!sceneRef.current || !selectedItem) return;
-
-    // Remove existing path
-    if (pathRef.current) {
-      sceneRef.current.remove(pathRef.current);
-      pathRef.current = null;
+  // Change floor handler
+  const handleFloorChange = (direction: 'up' | 'down') => {
+    const maxFloor = 3; // Assuming we have 3 floors
+    let newFloor;
+    
+    if (direction === 'up') {
+      newFloor = currentFloor < maxFloor ? currentFloor + 1 : currentFloor;
+    } else {
+      newFloor = currentFloor > 1 ? currentFloor - 1 : currentFloor;
     }
-
-    // Calculate path
-    const path = findPath(selectedItem.position);
     
-    // Create path line
-    const points = path.points.map(p => new THREE.Vector3(p.x, p.y + 0.1, p.z));
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({ color: 0xff00ff, linewidth: 4 });
-    const line = new THREE.Line(geometry, material);
+    if (newFloor !== currentFloor) {
+      onFloorChange(newFloor);
+    }
+  };
+
+  // Select the appropriate floor image
+  const floorImage = floorImages[currentFloor as keyof typeof floorImages] || defaultFloorImage;
+
+  // Handle image loading error
+  const handleImageError = () => {
+    console.error(`Failed to load floor image: ${floorImage}`);
+    setImageError(true);
+  };
+
+  // Handle click on map for setting user location
+  const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isSettingLocation || !setUserLocation) return;
     
-    sceneRef.current.add(line);
-    pathRef.current = line;
-
-    return () => {
-      if (pathRef.current && sceneRef.current) {
-        sceneRef.current.remove(pathRef.current);
-        pathRef.current = null;
-      }
-    };
-  }, [selectedItem]);
-
-  // Handle click events
-  useEffect(() => {
-    if (!mountRef.current || !sceneRef.current || !cameraRef.current) return;
-
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
-    const handleClick = (event: MouseEvent) => {
-      // Calculate mouse position in normalized device coordinates
-      const rect = mountRef.current!.getBoundingClientRect();
-      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-      // Update the picking ray with the camera and mouse position
-      raycaster.setFromCamera(mouse, cameraRef.current!);
-
-      // Calculate objects intersecting the picking ray
-      const intersects = raycaster.intersectObjects(sceneRef.current!.children, true);
-
-      if (intersects.length > 0) {
-        let selectedObject = intersects[0].object;
-        
-        // If we clicked on a label, find the parent (store or facility)
-        while (selectedObject.parent && !selectedObject.userData?.type) {
-          selectedObject = selectedObject.parent;
-        }
-        
-        const userData = selectedObject.userData;
-
-        if (userData && userData.type) {
-          if (userData.type === 'store') {
-            const store = stores.find(s => s.id === userData.id);
-            if (store) {
-              setSelectedItem(store);
-              onStoreSelect(store);
-            }
-          } else if (userData.type === 'facility') {
-            const facility = facilities.find(f => f.id === userData.id);
-            if (facility) {
-              setSelectedItem(facility);
-              onFacilitySelect(facility);
-            }
-          }
-        }
-      }
-    };
-
-    mountRef.current.addEventListener('click', handleClick);
-
-    return () => {
-      mountRef.current?.removeEventListener('click', handleClick);
-    };
-  }, [stores, facilities, onStoreSelect, onFacilitySelect]);
+    // Get click coordinates relative to the image container
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Convert to 3D coordinates (roughly approximated)
+    const width = rect.width;
+    const height = rect.height;
+    
+    // Map from pixel to 3D space
+    const xCoord = ((x / width) * 30) - 15;
+    const yCoord = ((y / height) * 30) - 15;
+    
+    // Update user location
+    setUserLocation({
+      x: xCoord,
+      y: yCoord,
+      floor: currentFloor
+    });
+    
+    // Exit location setting mode
+    setIsSettingLocation(false);
+  };
 
   return (
     <MapContainer>
-      <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
-      
-      {selectedItem && (
-        <DetailsBox>
-          <Typography variant="h6">{selectedItem.name}</Typography>
-          <Typography variant="body2">{selectedItem.description}</Typography>
-          {selectedItem && pathRef.current && (
-            <Box mt={2}>
-              <Typography variant="subtitle2">Directions:</Typography>
-              <ol style={{ paddingLeft: '20px', margin: 0 }}>
-                {findPath(selectedItem.position).instructions.map((instruction, idx) => (
-                  <li key={idx}><Typography variant="body2">{instruction}</Typography></li>
-                ))}
-              </ol>
-            </Box>
+      <FloorMap>
+        <MapBorder>
+          <FloorLabel variant="h5">Floor {currentFloor}</FloorLabel>
+          
+          {setUserLocation && (
+            <Button
+              variant="contained"
+              color={isSettingLocation ? "secondary" : "primary"}
+              size="small"
+              onClick={() => setIsSettingLocation(!isSettingLocation)}
+              sx={{
+                position: 'absolute',
+                top: '10px',
+                right: '70px',
+                zIndex: 10,
+              }}
+            >
+              {isSettingLocation ? 'Cancel' : 'Set My Location'}
+            </Button>
           )}
-        </DetailsBox>
-      )}
+          
+          <FloorImageContainer onClick={handleMapClick}>
+            {/* Floor plan image */}
+            <FloorImage 
+              src={floorImage} 
+              alt={`Floor ${currentFloor} Plan`} 
+              onError={handleImageError} 
+            />
+            
+            {/* Location setting helper text */}
+            {isSettingLocation && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                  color: 'white',
+                  padding: 2,
+                  borderRadius: 1,
+                  zIndex: 10,
+                }}
+              >
+                Click anywhere on the map to set your location
+              </Box>
+            )}
+            
+            {/* Markers container */}
+            <MarkersContainer>
+              {/* You Are Here marker - only show if user is on current floor */}
+              {userLocation && userLocation.floor === currentFloor && (
+                <YouAreHereMarker
+                  sx={{
+                    top: getMapPosition({ 
+                      position: { 
+                        x: userLocation.x, 
+                        y: 0, 
+                        z: userLocation.y 
+                      } 
+                    } as any).top,
+                    left: getMapPosition({ 
+                      position: { 
+                        x: userLocation.x, 
+                        y: 0, 
+                        z: userLocation.y 
+                      } 
+                    } as any).left,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: '20px',
+                      height: '20px',
+                      backgroundColor: 'white',
+                      clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%)',
+                      transform: 'translateY(-2px)',
+                    }}
+                  />
+                </YouAreHereMarker>
+              )}
+              
+              {/* Store hotspots */}
+              {storesOnFloor.map(store => {
+                const position = getMapPosition(store);
+                const config = storeTypeConfig[store.category as keyof typeof storeTypeConfig] || storeTypeConfig.default;
+                
+                return (
+                  <StoreTooltip
+                    key={`store-${store.id}`}
+                    title={
+                      <Box>
+                        <Typography variant="subtitle2">{store.name}</Typography>
+                        <Typography variant="body2">Category: {store.category}</Typography>
+                        {store.rating && (
+                          <Typography variant="body2">Rating: {store.rating}⭐</Typography>
+                        )}
+                      </Box>
+                    }
+                    arrow
+                    TransitionComponent={Zoom}
+                    placement="top"
+                  >
+                    <MapHotspot
+                      onClick={() => handleItemClick(store, 'store')}
+                      sx={{
+                        top: position.top,
+                        left: position.left,
+                        width: config.size,
+                        height: config.size,
+                        backgroundColor: `${config.color}30`,
+                        border: `2px solid ${config.color}`,
+                      }}
+                    />
+                  </StoreTooltip>
+                );
+              })}
+              
+              {/* Facility hotspots */}
+              {facilitiesOnFloor.map(facility => {
+                const position = getMapPosition(facility);
+                const config = facilityTypeConfig[facility.type as keyof typeof facilityTypeConfig] || facilityTypeConfig.default;
+                
+                return (
+                  <StoreTooltip
+                    key={`facility-${facility.id}`}
+                    title={
+                      <Box>
+                        <Typography variant="subtitle2">{facility.name}</Typography>
+                        <Typography variant="body2">Type: {facility.type}</Typography>
+                      </Box>
+                    }
+                    arrow
+                    TransitionComponent={Zoom}
+                    placement="top"
+                  >
+                    <FacilityHotspot
+                      onClick={() => handleItemClick(facility, 'facility')}
+                      sx={{
+                        top: position.top,
+                        left: position.left,
+                        width: config.size,
+                        height: config.size,
+                        backgroundColor: `${config.color}30`,
+                        border: `2px solid ${config.color}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      {config.symbol}
+                    </FacilityHotspot>
+                  </StoreTooltip>
+                );
+              })}
+            </MarkersContainer>
+          </FloorImageContainer>
+          
+          {/* Floor navigation */}
+          <FloorNavigation>
+            <NavigationButton 
+              variant="contained" 
+              color="primary" 
+              onClick={() => handleFloorChange('up')}
+              disabled={currentFloor >= 3}
+            >
+              ↑
+            </NavigationButton>
+            <Box sx={{ textAlign: 'center', fontWeight: 'bold' }}>
+              {currentFloor}
+            </Box>
+            <NavigationButton 
+              variant="contained" 
+              color="primary" 
+              onClick={() => handleFloorChange('down')}
+              disabled={currentFloor <= 1}
+            >
+              ↓
+            </NavigationButton>
+          </FloorNavigation>
+          
+          {/* Details popup when item is selected */}
+          {selectedItem && showDetails && (
+            <DetailsBox>
+              <Typography variant="h6">{selectedItem.name}</Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                {selectedItem.description}
+              </Typography>
+              
+              {'category' in selectedItem && (
+                <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                  Category: {selectedItem.category}
+                </Typography>
+              )}
+              
+              {'type' in selectedItem && (
+                <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                  Type: {selectedItem.type}
+                </Typography>
+              )}
+              
+              {'openingHours' in selectedItem && (
+                <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                  Opening Hours: {selectedItem.openingHours}
+                </Typography>
+              )}
+              
+              {'rating' in selectedItem && selectedItem.rating && (
+                <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                  Rating: {selectedItem.rating} ⭐
+                </Typography>
+              )}
+              
+              {'phone' in selectedItem && selectedItem.phone && (
+                <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                  Phone: {selectedItem.phone}
+                </Typography>
+              )}
+              
+              <Button 
+                variant="outlined" 
+                size="small" 
+                sx={{ mt: 2 }}
+                onClick={() => setShowDetails(false)}
+              >
+                Close
+              </Button>
+            </DetailsBox>
+          )}
+        </MapBorder>
+      </FloorMap>
     </MapContainer>
   );
 };

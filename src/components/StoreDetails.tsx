@@ -143,7 +143,7 @@ const StyledChip = styled(Chip)(({ theme }) => ({
 const USER_POSITION = { x: 0, y: 0, z: 8 };
 
 interface StoreDetailsProps {
-  selectedItem: Store | Facility | null;
+  item: Store | Facility | null;
   onClose: () => void;
 }
 
@@ -170,7 +170,7 @@ const MapTooltip = styled(Box)(({ theme }) => ({
   }
 }));
 
-const StoreDetails: React.FC<StoreDetailsProps> = ({ selectedItem, onClose }) => {
+const StoreDetails: React.FC<StoreDetailsProps> = ({ item, onClose }) => {
   const [openDirectionsDialog, setOpenDirectionsDialog] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [favorite, setFavorite] = useState(false);
@@ -180,8 +180,8 @@ const StoreDetails: React.FC<StoreDetailsProps> = ({ selectedItem, onClose }) =>
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
-    setIsOpen(!!selectedItem);
-  }, [selectedItem]);
+    setIsOpen(!!item);
+  }, [item]);
 
   const handleClose = () => {
     setIsOpen(false);
@@ -190,9 +190,9 @@ const StoreDetails: React.FC<StoreDetailsProps> = ({ selectedItem, onClose }) =>
     }, 300);
   };
   
-  if (!selectedItem) return null;
+  if (!item) return null;
 
-  const isStore = 'category' in selectedItem;
+  const isStore = 'category' in item;
   
   const getFacilityIcon = (type: Facility['type']) => {
     switch (type) {
@@ -226,8 +226,8 @@ const StoreDetails: React.FC<StoreDetailsProps> = ({ selectedItem, onClose }) =>
     // Simplified calculation: Euclidean distance
     const userPos = USER_POSITION;
     const distance = Math.sqrt(
-      Math.pow(userPos.x - selectedItem.position.x, 2) + 
-      Math.pow(userPos.z - selectedItem.position.z, 2)
+      Math.pow(userPos.x - item.position.x, 2) + 
+      Math.pow(userPos.z - item.position.z, 2)
     );
     
     // Calculate time in seconds, then convert to minutes
@@ -239,7 +239,7 @@ const StoreDetails: React.FC<StoreDetailsProps> = ({ selectedItem, onClose }) =>
 
   // Generate detailed directions
   const getDetailedDirections = (): Direction[] => {
-    const destination = selectedItem.position;
+    const destination = item.position;
     const directions: Direction[] = [];
     
     // First step - starting point
@@ -251,9 +251,9 @@ const StoreDetails: React.FC<StoreDetailsProps> = ({ selectedItem, onClose }) =>
     });
     
     // Determine if we need to change floors
-    if (selectedItem.floor !== 1) { // Assuming current floor is 1
+    if (item.floor !== 1) { // Assuming current floor is 1
       directions.push({
-        instruction: `Take the elevator to floor ${selectedItem.floor}`,
+        instruction: `Take the elevator to floor ${item.floor}`,
         icon: <ElevatorIcon color="primary" />,
         details: "The nearest elevator is located at the center of the mall",
         distance: 5
@@ -281,7 +281,7 @@ const StoreDetails: React.FC<StoreDetailsProps> = ({ selectedItem, onClose }) =>
       const direction = dz < 0 ? "forward" : "right";
       const icon = dz < 0 ? <ForwardIcon color="primary" /> : <TurnRightIcon color="primary" />;
       directions.push({
-        instruction: `Go ${direction} toward ${isStore ? selectedItem.name : selectedItem.type}`,
+        instruction: `Go ${direction} toward ${isStore ? item.name : item.type}`,
         icon: icon,
         details: `Walk ${Math.abs(Math.round(dz))} meters ${dz < 0 ? 'north' : 'south'}`,
         distance: Math.abs(Math.round(dz))
@@ -290,9 +290,9 @@ const StoreDetails: React.FC<StoreDetailsProps> = ({ selectedItem, onClose }) =>
     
     // Final step - arrival
     directions.push({
-      instruction: `Arrive at ${selectedItem.name}`,
-      icon: isStore ? getStoreIcon((selectedItem as Store).category) : getFacilityIcon((selectedItem as Facility).type),
-      details: `${isStore ? (selectedItem as Store).category : (selectedItem as Facility).type} - ${selectedItem.description}`,
+      instruction: `Arrive at ${item.name}`,
+      icon: isStore ? getStoreIcon((item as Store).category) : getFacilityIcon((item as Facility).type),
+      details: `${isStore ? (item as Store).category : (item as Facility).type} - ${item.description}`,
       distance: 0
     });
     
@@ -323,30 +323,30 @@ const StoreDetails: React.FC<StoreDetailsProps> = ({ selectedItem, onClose }) =>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', mb: 2 }}>
           {isStore ? (
             <StyledChip 
-              label={(selectedItem as Store).category} 
+              label={(item as Store).category} 
               color="primary" 
               variant="outlined" 
               icon={<CategoryIcon />}
             />
           ) : (
             <StyledChip 
-              label={(selectedItem as Facility).type} 
+              label={(item as Facility).type} 
               color="primary" 
               variant="outlined" 
               icon={<InfoIcon />}
             />
           )}
           <StyledChip 
-            label={`Floor ${selectedItem.floor}`} 
+            label={`Floor ${item.floor}`} 
             color="secondary" 
             variant="outlined" 
             icon={<LocationOnIcon />}
           />
           
-          {isStore && (selectedItem as Store).rating && (
+          {isStore && (item as Store).rating && (
             <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
               <Rating 
-                value={(selectedItem as Store).rating} 
+                value={(item as Store).rating} 
                 precision={0.5} 
                 readOnly 
                 size={isSmallScreen ? "small" : "medium"}
@@ -356,30 +356,30 @@ const StoreDetails: React.FC<StoreDetailsProps> = ({ selectedItem, onClose }) =>
         </Box>
 
         <Typography variant="body1" paragraph sx={{ mb: 2 }}>
-          {selectedItem.description}
+          {item.description}
         </Typography>
 
         <List sx={{ py: 0 }}>
-          {isStore && (selectedItem as Store).openingHours && (
+          {isStore && (item as Store).openingHours && (
             <ListItem>
               <ListItemIcon>
                 <AccessTimeIcon color="primary" />
               </ListItemIcon>
               <ListItemText
                 primary="Opening Hours"
-                secondary={(selectedItem as Store).openingHours}
+                secondary={(item as Store).openingHours}
               />
             </ListItem>
           )}
 
-          {isStore && (selectedItem as Store).phone && (
+          {isStore && (item as Store).phone && (
             <ListItem>
               <ListItemIcon>
                 <InfoIcon color="primary" />
               </ListItemIcon>
               <ListItemText
                 primary="Phone"
-                secondary={(selectedItem as Store).phone}
+                secondary={(item as Store).phone}
               />
             </ListItem>
           )}
@@ -419,8 +419,8 @@ const StoreDetails: React.FC<StoreDetailsProps> = ({ selectedItem, onClose }) =>
           <li>
             <Typography variant="body2" gutterBottom>
               {isStore 
-                ? `Arrive at ${selectedItem.name}`
-                : `Arrive at ${selectedItem.name}`}
+                ? `Arrive at ${item.name}`
+                : `Arrive at ${item.name}`}
             </Typography>
           </li>
         </ol>
@@ -471,12 +471,12 @@ const StoreDetails: React.FC<StoreDetailsProps> = ({ selectedItem, onClose }) =>
               <HeaderContent>
                 <StyledAvatar>
                   {isStore 
-                    ? getStoreIcon((selectedItem as Store).category)
-                    : getFacilityIcon((selectedItem as Facility).type)
+                    ? getStoreIcon((item as Store).category)
+                    : getFacilityIcon((item as Facility).type)
                   }
                 </StyledAvatar>
                 <Typography variant="h6" fontWeight="bold">
-                  {selectedItem.name}
+                  {item.name}
                 </Typography>
               </HeaderContent>
               <IconButton 
@@ -499,12 +499,12 @@ const StoreDetails: React.FC<StoreDetailsProps> = ({ selectedItem, onClose }) =>
             <HeaderContent>
               <StyledAvatar>
                 {isStore 
-                  ? getStoreIcon((selectedItem as Store).category)
-                  : getFacilityIcon((selectedItem as Facility).type)
+                  ? getStoreIcon((item as Store).category)
+                  : getFacilityIcon((item as Facility).type)
                 }
               </StyledAvatar>
               <Typography variant="h6" fontWeight="bold">
-                {selectedItem.name}
+                {item.name}
               </Typography>
             </HeaderContent>
             <IconButton 
@@ -546,7 +546,7 @@ const StoreDetails: React.FC<StoreDetailsProps> = ({ selectedItem, onClose }) =>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <DirectionsIcon />
-              <Typography variant="h6">Route to {selectedItem.name}</Typography>
+              <Typography variant="h6">Route to {item.name}</Typography>
             </Box>
             <IconButton 
               size="large" 

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mall Floor Plan Image Uploader</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      color: #333;
+    }
+    h1 {
+      border-bottom: 2px solid #f0f0f0;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    .upload-container {
+      margin-bottom: 30px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    .upload-form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    label {
+      font-weight: bold;
+    }
+    select, input[type="file"] {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      align-self: flex-start;
+    }
+    button:hover {
+      background-color: #3367d6;
+    }
+    .preview {
+      margin-top: 20px;
+      border: 1px dashed #ccc;
+      padding: 10px;
+      display: none;
+    }
+    .preview img {
+      max-width: 100%;
+      height: auto;
+    }
+    .instructions {
+      background-color: #fffde7;
+      padding: 15px;
+      border-left: 4px solid #ffd54f;
+      margin-bottom: 20px;
+    }
+    .success-message {
+      background-color: #e8f5e9;
+      padding: 15px;
+      border-left: 4px solid #4caf50;
+      margin-top: 20px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Mall Floor Plan Image Uploader</h1>
+  
+  <div class="instructions">
+    <h3>Instructions</h3>
+    <p>Use this tool to upload custom floor plan images for your mall map application. For best results:</p>
+    <ul>
+      <li>Upload images with a 1000x700 resolution</li>
+      <li>Use clear floor plans with visible store locations</li>
+      <li>Save images as JPG or PNG format</li>
+      <li>Name the files according to floor number (e.g., floor-1.jpg)</li>
+    </ul>
+    <p>After uploading, copy the files to your project's public/images/ directory.</p>
+  </div>
+  
+  <div class="upload-container">
+    <div class="upload-form">
+      <div class="form-group">
+        <label for="floor-select">Select Floor:</label>
+        <select id="floor-select">
+          <option value="1">Floor 1</option>
+          <option value="2">Floor 2</option>
+          <option value="3">Floor 3</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label for="image-input">Choose Image:</label>
+        <input type="file" id="image-input" accept="image/*">
+      </div>
+      
+      <button id="process-btn">Process and Download</button>
+    </div>
+    
+    <div class="preview" id="preview-container">
+      <h3>Preview:</h3>
+      <img id="preview-image" src="" alt="Floor plan preview">
+    </div>
+    
+    <div class="success-message" id="success-message">
+      <h3>Success!</h3>
+      <p>Your image has been processed and is ready for download. Click the download link below to save the file.</p>
+      <p><a id="download-link" href="#" download>Download Floor Plan Image</a></p>
+    </div>
+  </div>
+  
+  <script>
+    // DOM Elements
+    const floorSelect = document.getElementById('floor-select');
+    const imageInput = document.getElementById('image-input');
+    const processBtn = document.getElementById('process-btn');
+    const previewContainer = document.getElementById('preview-container');
+    const previewImage = document.getElementById('preview-image');
+    const successMessage = document.getElementById('success-message');
+    const downloadLink = document.getElementById('download-link');
+    
+    // Event Listeners
+    imageInput.addEventListener('change', handleImageSelection);
+    processBtn.addEventListener('click', processImage);
+    
+    // Handle image selection
+    function handleImageSelection(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        previewImage.src = event.target.result;
+        previewContainer.style.display = 'block';
+        successMessage.style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+    }
+    
+    // Process image and prepare for download
+    function processImage() {
+      const file = imageInput.files[0];
+      if (!file) {
+        alert('Please select an image first.');
+        return;
+      }
+      
+      const floorNumber = floorSelect.value;
+      const reader = new FileReader();
+      
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Set canvas dimensions
+          canvas.width = 1000;
+          canvas.height = 700;
+          
+          // Draw image on canvas (this allows resizing if needed)
+          ctx.drawImage(img, 0, 0, 1000, 700);
+          
+          // Get image data URL
+          const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+          
+          // Set download link
+          downloadLink.href = imageDataUrl;
+          downloadLink.download = `floor-${floorNumber}.jpg`;
+          
+          // Show success message
+          successMessage.style.display = 'block';
+          
+          // Scroll to success message
+          successMessage.scrollIntoView({ behavior: 'smooth' });
+        };
+        img.src = event.target.result;
+      };
+      
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html> 

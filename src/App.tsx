@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ThemeProvider, createTheme, responsiveFontSizes } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -165,6 +165,7 @@ function App() {
   const [currentFloor, setCurrentFloor] = useState(1);
   const [selectedItem, setSelectedItem] = useState<Store | Facility | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState({ x: 0, y: 0, floor: 1 });
   
   // Use system preference for dark/light mode
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -197,80 +198,83 @@ function App() {
     setDrawerOpen(!drawerOpen);
   };
 
-  const filteredStores = mockStores.filter(store => store.floor === currentFloor);
-  const filteredFacilities = mockFacilities.filter(facility => facility.floor === currentFloor);
-
-  // Calculate total floors
-  const allFloors = Array.from(new Set([...mockStores.map(s => s.floor), ...mockFacilities.map(f => f.floor)]));
-  const totalFloors = Math.max(...allFloors);
-
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <MainContainer>
-        <Navbar
-          currentFloor={currentFloor}
-          totalFloors={totalFloors}
-          onFloorChange={setCurrentFloor}
+        <Navbar 
+          currentFloor={currentFloor} 
+          setCurrentFloor={setCurrentFloor}
+          toggleDrawer={toggleDrawer}
+          showMenuIcon={isMobile}
         />
+        
         <ContentContainer>
-          {/* Mobile: Show SearchPanel in drawer */}
-          {isMobile ? (
-            <>
-              <MenuButton
-                color="primary"
-                aria-label="menu"
-                onClick={toggleDrawer}
-                size="large"
-              >
-                {drawerOpen ? <CloseIcon /> : <MenuIcon />}
-              </MenuButton>
+          <>
+            <MapContainer>
+              <MallMap
+                currentFloor={currentFloor}
+                stores={mockStores}
+                facilities={mockFacilities}
+                onStoreSelect={handleStoreSelect}
+                onFacilitySelect={handleFacilitySelect}
+                onFloorChange={setCurrentFloor}
+                isTouchDevice={isMobile}
+                userLocation={userLocation}
+                setUserLocation={setUserLocation}
+              />
               
-              <Drawer
-                anchor="left"
-                open={drawerOpen}
-                onClose={toggleDrawer}
-                sx={{
-                  '& .MuiDrawer-paper': {
-                    width: '85%',
-                    maxWidth: 360,
-                    borderTopRightRadius: theme.shape.borderRadius,
-                    borderBottomRightRadius: theme.shape.borderRadius,
-                  },
-                }}
-              >
+              {isMobile && !drawerOpen && (
+                <MenuButton
+                  color="primary"
+                  aria-label="open drawer"
+                  onClick={toggleDrawer}
+                  size="large"
+                >
+                  <MenuIcon />
+                </MenuButton>
+              )}
+            </MapContainer>
+            
+            <Drawer
+              variant={isMobile ? "temporary" : "permanent"}
+              open={isMobile ? drawerOpen : true}
+              onClose={isMobile ? toggleDrawer : undefined}
+              anchor="right"
+              sx={{
+                width: { xs: '85%', sm: '400px' },
+                flexShrink: 0,
+                '& .MuiDrawer-paper': {
+                  width: { xs: '85%', sm: '400px' },
+                  boxSizing: 'border-box',
+                },
+              }}
+            >
+              {isMobile && (
+                <IconButton
+                  onClick={toggleDrawer}
+                  sx={{ alignSelf: 'flex-end', m: 1 }}
+                >
+                  <CloseIcon />
+                </IconButton>
+              )}
+              
+              {selectedItem ? (
+                <StoreDetails 
+                  item={selectedItem} 
+                  onClose={handleCloseDetails}
+                />
+              ) : (
                 <SearchPanel
                   stores={mockStores}
                   facilities={mockFacilities}
                   onStoreSelect={handleStoreSelect}
                   onFacilitySelect={handleFacilitySelect}
+                  currentFloor={currentFloor}
                 />
-              </Drawer>
-            </>
-          ) : (
-            /* Desktop: Show SearchPanel inline */
-            <SearchPanel
-              stores={mockStores}
-              facilities={mockFacilities}
-              onStoreSelect={handleStoreSelect}
-              onFacilitySelect={handleFacilitySelect}
-            />
-          )}
-          
-          <MapContainer>
-            <MallMap
-              currentFloor={currentFloor}
-              stores={filteredStores}
-              facilities={filteredFacilities}
-              onStoreSelect={handleStoreSelect}
-              onFacilitySelect={handleFacilitySelect}
-              isTouchDevice={true}
-            />
-            <StoreDetails
-              selectedItem={selectedItem}
-              onClose={handleCloseDetails}
-            />
-          </MapContainer>
+              )}
+            </Drawer>
+          </>
         </ContentContainer>
       </MainContainer>
     </ThemeProvider>

@@ -16,8 +16,9 @@ import Brightness7Icon from '@mui/icons-material/Brightness7';
 
 interface NavbarProps {
   currentFloor: number;
-  totalFloors: number;
-  onFloorChange: (floor: number) => void;
+  setCurrentFloor: (floor: number) => void;
+  toggleDrawer?: () => void;
+  showMenuIcon?: boolean;
 }
 
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
@@ -55,19 +56,24 @@ const FloorIndicator = styled(Box)(({ theme }) => ({
   fontSize: '1.25rem',
 }));
 
-const Navbar: React.FC<NavbarProps> = ({ currentFloor, totalFloors, onFloorChange }) => {
+const Navbar: React.FC<NavbarProps> = ({ 
+  currentFloor, 
+  setCurrentFloor, 
+  toggleDrawer, 
+  showMenuIcon = false 
+}) => {
   const isMobile = useMediaQuery('(max-width:768px)');
   const isSmallScreen = useMediaQuery('(max-width:480px)');
 
   const handleFloorUp = () => {
-    if (currentFloor < totalFloors) {
-      onFloorChange(currentFloor + 1);
+    if (currentFloor < 3) { // hardcoded totalFloors as 3 since we removed that prop
+      setCurrentFloor(currentFloor + 1);
     }
   };
 
   const handleFloorDown = () => {
     if (currentFloor > 1) {
-      onFloorChange(currentFloor - 1);
+      setCurrentFloor(currentFloor - 1);
     }
   };
 
@@ -117,7 +123,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentFloor, totalFloors, onFloorChang
                 color="primary"
                 aria-label="floor up"
                 onClick={handleFloorUp}
-                disabled={currentFloor >= totalFloors}
+                disabled={currentFloor >= 3}
                 size="large"
               >
                 <ArrowUpwardIcon fontSize="large" />

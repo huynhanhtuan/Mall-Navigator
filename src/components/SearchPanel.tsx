@@ -34,6 +34,7 @@ interface SearchPanelProps {
   facilities: Facility[];
   onStoreSelect: (store: Store) => void;
   onFacilitySelect: (facility: Facility) => void;
+  currentFloor?: number;
 }
 
 const SearchContainer = styled(Box)(({ theme }) => ({
@@ -153,6 +154,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   facilities,
   onStoreSelect,
   onFacilitySelect,
+  currentFloor,
 }) => {
   const [search, setSearch] = useState('');
   const [selectedTab, setSelectedTab] = useState(0); // 0 = all, 1 = stores, 2 = facilities
