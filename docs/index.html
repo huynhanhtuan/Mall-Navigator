@@ -1,1 +1,86 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#000000"/><meta name="description" content="Mall Map - Interactive 3D Mall Navigation"/><title>Mall Map</title><script defer="defer" src="./static/js/main.79563ae7.js"></script></head><body><noscript>You need to enable JavaScript to run this app.</noscript><div id="root"></div></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Three.js Test</title>
+  <style>
+    body { margin: 0; background-color: #000; }
+    #info { 
+      position: absolute; 
+      top: 10px; 
+      width: 100%; 
+      text-align: center; 
+      color: white;
+      font-family: Arial, sans-serif;
+      z-index: 100;
+    }
+    #error {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: red;
+      background: rgba(0,0,0,0.8);
+      padding: 20px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
+      display: none;
+      z-index: 100;
+    }
+  </style>
+  <!-- Sử dụng script tag thông thường với unpkg CDN -->
+  <script src="https://unpkg.com/three@0.150.1/build/three.min.js"></script>
+</head>
+<body>
+  <div id="info">Loading Three.js...</div>
+  <div id="error"></div>
+  
+  <script>
+    // Đợi cho trang tải xong
+    window.onload = function() {
+      try {
+        // Kiểm tra xem THREE có tồn tại không
+        if (typeof THREE === 'undefined') {
+          throw new Error('Three.js library failed to load');
+        }
+        
+        document.getElementById('info').textContent = 'Three.js Test - Cube Rotation';
+        
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
+        const cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+        
+        camera.position.z = 5;
+        
+        // Kiểm tra nếu WebGL đang hoạt động
+        if (!renderer.capabilities.isWebGL) {
+          throw new Error('WebGL not supported by your browser or graphics card');
+        }
+        
+        function animate() {
+          requestAnimationFrame(animate);
+          cube.rotation.x += 0.01;
+          cube.rotation.y += 0.01;
+          renderer.render(scene, camera);
+        }
+        animate();
+        
+      } catch (error) {
+        // Hiển thị lỗi nếu có
+        const errorElement = document.getElementById('error');
+        errorElement.style.display = 'block';
+        errorElement.innerHTML = `<strong>Error:</strong><br>${error.message}<br><br>Please try a different browser or check your device compatibility.`;
+        document.getElementById('info').style.display = 'none';
+        console.error('Three.js error:', error);
+      }
+    };
+  </script>
+</body>
+</html>
