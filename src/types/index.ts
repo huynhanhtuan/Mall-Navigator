@@ -23,7 +23,7 @@ export interface Facility {
     y: number;
     z: number;
   };
-  type: 'elevator' | 'toilet' | 'parking' | 'entrance';
+  type: 'elevator' | 'toilet' | 'parking' | 'entrance' | 'escalator';
   description: string;
 }
 

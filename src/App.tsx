@@ -165,6 +165,7 @@ function App() {
   const [currentFloor, setCurrentFloor] = useState(1);
   const [selectedItem, setSelectedItem] = useState<Store | Facility | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [userPosition, setUserPosition] = useState({ x: 10, y: 0, z: 85 });
   
   // Use system preference for dark/light mode
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -265,6 +266,7 @@ function App() {
               onStoreSelect={handleStoreSelect}
               onFacilitySelect={handleFacilitySelect}
               isTouchDevice={true}
+              userPosition={userPosition}
             />
             <StoreDetails
               selectedItem={selectedItem}

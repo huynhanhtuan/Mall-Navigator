@@ -1,12 +1,12 @@
 {
   "files": {
-    "main.js": "/Mall-Navigator/static/js/main.a14f2b2f.js",
-    "static/js/453.c712d5be.chunk.js": "/Mall-Navigator/static/js/453.c712d5be.chunk.js",
-    "index.html": "/Mall-Navigator/index.html",
-    "main.a14f2b2f.js.map": "/Mall-Navigator/static/js/main.a14f2b2f.js.map",
-    "453.c712d5be.chunk.js.map": "/Mall-Navigator/static/js/453.c712d5be.chunk.js.map"
+    "main.js": "./static/js/main.0d1b4a91.js",
+    "static/js/453.c712d5be.chunk.js": "./static/js/453.c712d5be.chunk.js",
+    "index.html": "./index.html",
+    "main.0d1b4a91.js.map": "./static/js/main.0d1b4a91.js.map",
+    "453.c712d5be.chunk.js.map": "./static/js/453.c712d5be.chunk.js.map"
   },
   "entrypoints": [
-    "static/js/main.a14f2b2f.js"
+    "static/js/main.0d1b4a91.js"
   ]
 }

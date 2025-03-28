@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, Tooltip } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -9,7 +9,22 @@ const MapContainer = styled(Box)(({ theme }) => ({
   width: '100%',
   height: '100%',
   position: 'relative',
+  overflow: 'hidden',
+  backgroundColor: theme.palette.background.paper,
+  borderRadius: theme.shape.borderRadius,
+  boxShadow: theme.shadows[1]
 }));
+
+const MapImage = styled('img')({
+  width: '100%',
+  height: '100%',
+  objectFit: 'contain',
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  userSelect: 'none',
+  pointerEvents: 'none'
+});
 
 const DetailsBox = styled(Box)(({ theme }) => ({
   position: 'absolute',
@@ -28,6 +43,28 @@ const DetailsBox = styled(Box)(({ theme }) => ({
   }
 }));
 
+const StoreArea = styled(Box)(({ theme }) => ({
+  position: 'absolute',
+  cursor: 'pointer',
+  backgroundColor: 'rgba(0, 0, 0, 0.0)',
+  '&:hover': {
+    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+    outline: '2px solid rgba(33, 150, 243, 0.5)',
+  },
+  transition: 'all 0.2s',
+}));
+
+const StoreLabel = styled(Typography)(({ theme }) => ({
+  position: 'absolute',
+  color: theme.palette.text.primary,
+  fontSize: '0.75rem',
+  fontWeight: 500,
+  textAlign: 'center',
+  width: '100%',
+  userSelect: 'none',
+  pointerEvents: 'none'
+}));
+
 // Position representing the current user location
 const USER_POSITION = { x: 0, y: 0, z: 8 };
 
@@ -37,6 +74,9 @@ interface MallMapProps {
   facilities: Facility[];
   onStoreSelect: (store: Store) => void;
   onFacilitySelect: (facility: Facility) => void;
+  showRoute?: boolean;
+  routeToStore?: Store | null;
+  userPosition: { x: number; y: number; z: number };
   isTouchDevice?: boolean;
 }
 
@@ -46,6 +86,9 @@ const MallMap: React.FC<MallMapProps> = ({
   facilities,
   onStoreSelect,
   onFacilitySelect,
+  showRoute,
+  routeToStore,
+  userPosition,
   isTouchDevice = false,
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -439,25 +482,139 @@ const MallMap: React.FC<MallMapProps> = ({
     };
   }, [stores, facilities, onStoreSelect, onFacilitySelect]);
 
+  // Hàm tính toán vị trí và kích thước của store area dựa trên store
+  const getStoreAreaStyle = (store: Store) => {
+    // Tính toán kích thước dựa trên category
+    let width = '120px';
+    let height = '60px';
+
+    switch (store.category.toLowerCase()) {
+      case 'food':
+        width = '80px';
+        height = '40px';
+        break;
+      case 'shopping':
+        width = '200px';
+        height = '100px';
+        break;
+      default:
+        width = '100px';
+        height = '50px';
+    }
+
+    return {
+      left: `${store.position.x}%`,
+      top: `${store.position.z}%`,
+      width,
+      height,
+      transform: 'translate(-50%, -50%)',
+    };
+  };
+
+  // Hàm tính toán vị trí và kích thước của facility area
+  const getFacilityAreaStyle = (facility: Facility) => {
+    // Tính toán kích thước dựa trên type
+    let width = '60px';
+    let height = '60px';
+
+    switch (facility.type.toLowerCase()) {
+      case 'elevator':
+        width = '40px';
+        height = '40px';
+        break;
+      case 'toilet':
+        width = '50px';
+        height = '40px';
+        break;
+      default:
+        width = '60px';
+        height = '40px';
+    }
+
+    return {
+      left: `${facility.position.x}%`,
+      top: `${facility.position.z}%`,
+      width,
+      height,
+      transform: 'translate(-50%, -50%)',
+    };
+  };
+
   return (
     <MapContainer>
-      <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+      <MapImage 
+        src={`${process.env.PUBLIC_URL}/images/floor-${currentFloor}.png`} 
+        alt={`Floor ${currentFloor} map`} 
+      />
       
-      {selectedItem && (
-        <DetailsBox>
-          <Typography variant="h6">{selectedItem.name}</Typography>
-          <Typography variant="body2">{selectedItem.description}</Typography>
-          {selectedItem && pathRef.current && (
-            <Box mt={2}>
-              <Typography variant="subtitle2">Directions:</Typography>
-              <ol style={{ paddingLeft: '20px', margin: 0 }}>
-                {findPath(selectedItem.position).instructions.map((instruction, idx) => (
-                  <li key={idx}><Typography variant="body2">{instruction}</Typography></li>
-                ))}
-              </ol>
+      {stores.map((store) => (
+        <Tooltip
+          key={store.id}
+          title={
+            <Box>
+              <Typography variant="subtitle2">{store.name}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {store.category}
+              </Typography>
+              <Typography variant="caption" display="block">
+                {store.openingHours}
+              </Typography>
             </Box>
-          )}
-        </DetailsBox>
+          }
+          arrow
+          placement="top"
+        >
+          <StoreArea
+            onClick={() => onStoreSelect(store)}
+            sx={getStoreAreaStyle(store)}
+          >
+            <StoreLabel>{store.name}</StoreLabel>
+          </StoreArea>
+        </Tooltip>
+      ))}
+
+      {facilities.map((facility) => (
+        <Tooltip
+          key={facility.id}
+          title={
+            <Box>
+              <Typography variant="subtitle2">{facility.name}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {facility.type}
+              </Typography>
+            </Box>
+          }
+          arrow
+          placement="top"
+        >
+          <StoreArea
+            onClick={() => onFacilitySelect(facility)}
+            sx={getFacilityAreaStyle(facility)}
+          >
+            <StoreLabel>{facility.name}</StoreLabel>
+          </StoreArea>
+        </Tooltip>
+      ))}
+
+      {showRoute && routeToStore && (
+        <svg
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none',
+          }}
+        >
+          <path
+            d={`M ${userPosition.x}% ${userPosition.z}% L ${routeToStore.position.x}% ${routeToStore.position.z}%`}
+            stroke="#1976d2"
+            strokeWidth="2"
+            fill="none"
+            strokeDasharray="5,5"
+          />
+        </svg>
       )}
     </MapContainer>
   );
