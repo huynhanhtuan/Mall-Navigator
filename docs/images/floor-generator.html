@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mall Floor Plan Generator</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+            width: 300px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0d8bf2;
+        }
+        select {
+            padding: 8px;
+            font-size: 16px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mall Floor Plan Generator</h1>
+    
+    <div class="controls">
+        <select id="floorSelect">
+            <option value="1">Floor 1</option>
+            <option value="2">Floor 2</option>
+            <option value="3">Floor 3</option>
+        </select>
+        <button id="generateBtn">Generate Floor Plan</button>
+        <button id="downloadBtn">Download as Image</button>
+    </div>
+    
+    <canvas id="floorCanvas" width="1000" height="700"></canvas>
+    
+    <script>
+        const canvas = document.getElementById('floorCanvas');
+        const ctx = canvas.getContext('2d');
+        const floorSelect = document.getElementById('floorSelect');
+        const generateBtn = document.getElementById('generateBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        
+        // Define store categories and their colors
+        const categories = {
+            'goods': {color: '#A8D3FF', label: 'Goods'},
+            'fashion': {color: '#FFECB3', label: 'Fashion & Accessories'},
+            'supermarket': {color: '#E1BEE7', label: 'Supermarket'},
+            'backOfHouse': {color: '#E0E0E0', label: 'Back of house'},
+            'food': {color: '#FFCDD2', label: 'Food & Beverages'},
+            'tech': {color: '#B2DFDB', label: 'Electronics'},
+            'services': {color: '#C5CAE9', label: 'Services'}
+        };
+        
+        // Define facilities and their markers
+        const facilities = {
+            'elevator': {label: 'Elevator', color: '#4CAF50', symbol: '⬆'},
+            'toilet': {label: 'Toilet', color: '#03A9F4', symbol: 'WC'},
+            'info': {label: 'Information', color: '#F44336', symbol: 'i'},
+            'entrance': {label: 'Entrance/Exit', color: '#FF9800', symbol: '⤭'},
+            'parking': {label: 'Parking', color: '#9C27B0', symbol: 'P'},
+            'atm': {label: 'ATM', color: '#607D8B', symbol: '$'}
+        };
+        
+        // Define store layouts for each floor
+        const floorLayouts = {
+            '1': {
+                // Logo position
+                logo: {x: 90, y: 50, width: 180, height: 50},
+                // Floor selector positions
+                floorSelectors: [
+                    {x: 300, y: 150, width: 140, height: 40, label: 'Second Floor', selected: false},
+                    {x: 450, y: 150, width: 140, height: 40, label: 'Third Floor', selected: false},
+                    {x: 600, y: 150, width: 140, height: 40, label: 'Fourth Floor', selected: false}
+                ],
+                // Store areas
+                stores: [
+                    {id: 'S101', name: 'Highlands', category: 'food', shape: 'rect', x: 100, y: 650, width: 150, height: 80},
+                    {id: 'S102', name: 'Charm & Gifts', category: 'goods', shape: 'rect', x: 250, y: 650, width: 200, height: 80},
+                    {id: 'S103', name: 'H&M', category: 'fashion', shape: 'rect', x: 520, y: 650, width: 150, height: 80},
+                    {id: 'S104', name: 'GiGi', category: 'fashion', shape: 'rect', x: 550, y: 650, width: 80, height: 80},
+                    {id: 'S105', name: 'KL3', category: 'fashion', shape: 'rect', x: 630, y: 650, width: 100, height: 80},
+                    {id: 'S106', name: 'Grand Mall', category: 'supermarket', shape: 'oval', x: 320, y: 550, width: 120, height: 60},
+                    {id: 'S107', name: 'Joy Mall', category: 'supermarket', shape: 'oval', x: 500, y: 550, width: 110, height: 60},
+                    {id: 'S108', name: 'Watsimoto', category: 'goods', shape: 'rect', x: 70, y: 450, width: 120, height: 80},
+                    {id: 'S109', name: 'Adidas Concept Store', category: 'fashion', shape: 'rect', x: 210, y: 450, width: 200, height: 80},
+                    {id: 'S110', name: 'Levi\'s', category: 'fashion', shape: 'rect', x: 410, y: 450, width: 100, height: 80},
+                    {id: 'S111', name: 'Swatch', category: 'fashion', shape: 'rect', x: 410, y: 530, width: 100, height: 80},
+                    {id: 'S112', name: 'Aldo', category: 'fashion', shape: 'rect', x: 450, y: 450, width: 100, height: 80},
+                    {id: 'S113', name: 'Biorindo', category: 'goods', shape: 'rect', x: 550, y: 450, width: 100, height: 80},
+                    {id: 'S114', name: 'WC', category: 'backOfHouse', shape: 'rect', x: 550, y: 530, width: 100, height: 80},
+                    {id: 'S115', name: 'Glam Beauty', category: 'services', shape: 'rect', x: 750, y: 450, width: 150, height: 80}
+                ],
+                // Facility markers (circles with letters)
+                markers: [
+                    {id: 'A', type: 'elevator', x: 250, y: 600, radius: 30},
+                    {id: 'B', type: 'toilet', x: 750, y: 600, radius: 30},
+                    {id: 'C', type: 'entrance', x: 700, y: 350, radius: 30},
+                    {id: 'D', type: 'atm', x: 150, y: 350, radius: 30}
+                ],
+                // "You are here" marker
+                youAreHere: {x: 700, y: 450, width: 40, height: 40}
+            },
+            '2': {
+                // Similar structure for floor 2
+                logo: {x: 90, y: 50, width: 180, height: 50},
+                floorSelectors: [
+                    {x: 300, y: 150, width: 140, height: 40, label: 'First Floor', selected: false},
+                    {x: 450, y: 150, width: 140, height: 40, label: 'Third Floor', selected: false},
+                    {x: 600, y: 150, width: 140, height: 40, label: 'Fourth Floor', selected: false}
+                ],
+                stores: [
+                    {id: 'S201', name: 'Electronics Hub', category: 'tech', shape: 'rect', x: 100, y: 650, width: 200, height: 80},
+                    {id: 'S202', name: 'Tech World', category: 'tech', shape: 'rect', x: 320, y: 650, width: 180, height: 80},
+                    {id: 'S203', name: 'Phone Store', category: 'tech', shape: 'rect', x: 520, y: 650, width: 150, height: 80},
+                    {id: 'S204', name: 'Computer Plaza', category: 'tech', shape: 'rect', x: 670, y: 650, width: 150, height: 80},
+                    {id: 'S205', name: 'Game Stop', category: 'tech', shape: 'oval', x: 320, y: 550, width: 120, height: 60},
+                    {id: 'S206', name: 'Book World', category: 'goods', shape: 'oval', x: 500, y: 550, width: 110, height: 60},
+                    {id: 'S207', name: 'Home Depot', category: 'goods', shape: 'rect', x: 70, y: 450, width: 180, height: 80},
+                    {id: 'S208', name: 'Furniture City', category: 'goods', shape: 'rect', x: 250, y: 450, width: 200, height: 80},
+                    {id: 'S209', name: 'Kitchen Plus', category: 'goods', shape: 'rect', x: 450, y: 450, width: 150, height: 80},
+                    {id: 'S210', name: 'Appliance World', category: 'tech', shape: 'rect', x: 600, y: 450, width: 150, height: 80},
+                    {id: 'S211', name: 'WC', category: 'backOfHouse', shape: 'rect', x: 550, y: 330, width: 100, height: 80}
+                ],
+                markers: [
+                    {id: 'A', type: 'elevator', x: 250, y: 600, radius: 30},
+                    {id: 'B', type: 'toilet', x: 750, y: 600, radius: 30},
+                    {id: 'C', type: 'info', x: 500, y: 350, radius: 30}
+                ],
+                youAreHere: {x: 500, y: 450, width: 40, height: 40}
+            },
+            '3': {
+                // Similar structure for floor 3
+                logo: {x: 90, y: 50, width: 180, height: 50},
+                floorSelectors: [
+                    {x: 300, y: 150, width: 140, height: 40, label: 'First Floor', selected: false},
+                    {x: 450, y: 150, width: 140, height: 40, label: 'Second Floor', selected: false},
+                    {x: 600, y: 150, width: 140, height: 40, label: 'Fourth Floor', selected: false}
+                ],
+                stores: [
+                    {id: 'S301', name: 'Cinema City', category: 'services', shape: 'rect', x: 100, y: 650, width: 300, height: 120},
+                    {id: 'S302', name: 'Food Court', category: 'food', shape: 'rect', x: 420, y: 650, width: 300, height: 120},
+                    {id: 'S303', name: 'Family KTV', category: 'services', shape: 'rect', x: 730, y: 650, width: 150, height: 120},
+                    {id: 'S304', name: 'Event Space', category: 'services', shape: 'oval', x: 320, y: 500, width: 200, height: 100},
+                    {id: 'S305', name: 'Play Zone', category: 'services', shape: 'oval', x: 550, y: 500, width: 180, height: 100},
+                    {id: 'S306', name: 'WC', category: 'backOfHouse', shape: 'rect', x: 70, y: 430, width: 100, height: 80},
+                    {id: 'S307', name: 'Restaurant Row', category: 'food', shape: 'rect', x: 200, y: 430, width: 500, height: 80}
+                ],
+                markers: [
+                    {id: 'A', type: 'elevator', x: 250, y: 600, radius: 30},
+                    {id: 'B', type: 'toilet', x: 750, y: 600, radius: 30},
+                    {id: 'C', type: 'info', x: 500, y: 350, radius: 30}
+                ],
+                youAreHere: {x: 400, y: 500, width: 40, height: 40}
+            }
+        };
+        
+        // Draw floor plan
+        function drawFloorPlan(floorNumber) {
+            const layout = floorLayouts[floorNumber];
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw mall logo
+            ctx.fillStyle = '#f5f5f5';
+            ctx.fillRect(layout.logo.x, layout.logo.y, layout.logo.width, layout.logo.height);
+            ctx.font = 'bold 24px Arial';
+            ctx.fillStyle = '#333333';
+            ctx.textAlign = 'left';
+            ctx.fillText('MALL', layout.logo.x + 40, layout.logo.y + 30);
+            
+            // Add a subtitle with dynamic destination
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillText('DYNAMIC DESTINATION', layout.logo.x + 40, layout.logo.y + 45);
+            
+            // Draw floor selectors
+            layout.floorSelectors.forEach((selector, index) => {
+                // Selector background
+                ctx.fillStyle = '#f0f0f0';
+                ctx.strokeStyle = '#cccccc';
+                ctx.lineWidth = 2;
+                ctx.fillRect(selector.x, selector.y, selector.width, selector.height);
+                ctx.strokeRect(selector.x, selector.y, selector.width, selector.height);
+                
+                // Selector text
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#333333';
+                ctx.textAlign = 'center';
+                ctx.fillText(selector.label, selector.x + selector.width/2, selector.y + selector.height/2 + 6);
+            });
+            
+            // Draw "current floor" indicator
+            const currentFloorLabel = floorNumber === '1' ? 'First Floor' : 
+                                     (floorNumber === '2' ? 'Second Floor' : 'Third Floor');
+            ctx.beginPath();
+            ctx.arc(450, selector.y - 20, 30, 0, Math.PI * 2);
+            ctx.fillStyle = '#E91E63';
+            ctx.fill();
+            ctx.font = 'bold 16px Arial';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.fillText(currentFloorLabel, 450, selector.y - 14);
+            
+            // Draw category legend
+            let legendX = 100;
+            let legendY = 200;
+            
+            Object.entries(categories).forEach(([key, category], index) => {
+                // Only show relevant categories for this floor
+                const hasCategory = layout.stores.some(store => store.category === key);
+                if (!hasCategory) return;
+                
+                // Draw color box
+                ctx.fillStyle = category.color;
+                ctx.strokeStyle = '#888888';
+                ctx.lineWidth = 1;
+                ctx.fillRect(legendX, legendY, 20, 20);
+                ctx.strokeRect(legendX, legendY, 20, 20);
+                
+                // Draw category label
+                ctx.font = '14px Arial';
+                ctx.fillStyle = '#333333';
+                ctx.textAlign = 'left';
+                ctx.fillText(category.label, legendX + 30, legendY + 15);
+                
+                // Move to next position (horizontally)
+                legendX += 180;
+                if (legendX > 800) {
+                    legendX = 100;
+                    legendY += 30;
+                }
+            });
+            
+            // Draw mall walking area / hallways
+            ctx.fillStyle = '#f9f9f9';
+            ctx.fillRect(100, 300, canvas.width - 200, 300);
+            
+            // Draw store areas
+            layout.stores.forEach(store => {
+                const category = categories[store.category];
+                
+                // Draw store shape
+                ctx.fillStyle = category.color;
+                ctx.strokeStyle = '#888888';
+                ctx.lineWidth = 1;
+                
+                if (store.shape === 'rect') {
+                    ctx.fillRect(store.x, store.y, store.width, store.height);
+                    ctx.strokeRect(store.x, store.y, store.width, store.height);
+                    
+                    // Store name
+                    ctx.font = '12px Arial';
+                    ctx.fillStyle = '#333333';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(store.name, store.x + store.width/2, store.y + store.height/2);
+                    
+                } else if (store.shape === 'oval') {
+                    ctx.beginPath();
+                    ctx.ellipse(store.x + store.width/2, store.y + store.height/2, 
+                               store.width/2, store.height/2, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    // Store name
+                    ctx.font = '12px Arial';
+                    ctx.fillStyle = '#333333';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(store.name, store.x + store.width/2, store.y + store.height/2);
+                }
+            });
+            
+            // Draw facility markers
+            layout.markers.forEach(marker => {
+                const facility = facilities[marker.type];
+                
+                // Circle background
+                ctx.beginPath();
+                ctx.arc(marker.x, marker.y, marker.radius, 0, Math.PI * 2);
+                ctx.fillStyle = facility.color;
+                ctx.fill();
+                
+                // Marker letter
+                ctx.font = 'bold 20px Arial';
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.fillText(marker.id, marker.x, marker.y + 7);
+            });
+            
+            // Draw "You are here" indicator
+            const yah = layout.youAreHere;
+            ctx.fillStyle = '#F44336';
+            ctx.fillRect(yah.x, yah.y, yah.width, yah.height);
+            
+            // "You are here" icon (simple house/home icon)
+            ctx.beginPath();
+            ctx.moveTo(yah.x + yah.width/2, yah.y + 10);
+            ctx.lineTo(yah.x + 10, yah.y + 25);
+            ctx.lineTo(yah.x + 15, yah.y + 25);
+            ctx.lineTo(yah.x + 15, yah.y + 35);
+            ctx.lineTo(yah.x + 25, yah.y + 35);
+            ctx.lineTo(yah.x + 25, yah.y + 25);
+            ctx.lineTo(yah.x + 30, yah.y + 25);
+            ctx.closePath();
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+        }
+        
+        // Generate floor plan
+        generateBtn.addEventListener('click', () => {
+            const floorNumber = floorSelect.value;
+            drawFloorPlan(floorNumber);
+        });
+        
+        // Download as image
+        downloadBtn.addEventListener('click', () => {
+            const floorNumber = floorSelect.value;
+            const link = document.createElement('a');
+            link.download = `floor-${floorNumber}.jpg`;
+            link.href = canvas.toDataURL('image/jpeg', 0.8);
+            link.click();
+        });
+        
+        // Initial draw
+        drawFloorPlan('1');
+    </script>
+</body>
+</html> 

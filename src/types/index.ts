@@ -28,10 +28,11 @@ export interface Facility {
 }
 
 export interface Floor {
-  id: number;
+  id: string;
   name: string;
-  stores: Store[];
-  facilities: Facility[];
+  level: number;
+  stores: string[];
+  facilities: string[];
   mapImage: string;
 }
 

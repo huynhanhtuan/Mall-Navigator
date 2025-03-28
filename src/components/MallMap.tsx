@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Paper, Tooltip, Zoom, Button, TooltipProps } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { Store, Facility } from '../types';
+import { Store, Facility, Floor } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 const MapContainer = styled(Box)(({ theme }) => ({
   width: '100%',
   height: '100%',
   position: 'relative',
-  backgroundColor: theme.palette.background.default,
-  overflow: 'hidden',
+  backgroundColor: theme.palette.background.paper,
+  borderRadius: theme.shape.borderRadius,
+  padding: theme.spacing(2),
+  boxShadow: theme.shadows[1]
 }));
 
 const DetailsBox = styled(Box)(({ theme }) => ({
@@ -53,21 +56,19 @@ const MapBorder = styled(Box)(({ theme }) => ({
   overflow: 'hidden',
 }));
 
-const FloorImageContainer = styled(Box)({
-  width: '100%',
-  height: '100%',
+const FloorImageContainer = styled(Box)(({ theme }) => ({
   position: 'relative',
-  overflow: 'hidden',
-});
+  width: '100%',
+  height: '600px',
+  backgroundColor: theme.palette.background.default,
+  borderRadius: theme.shape.borderRadius,
+  overflow: 'hidden'
+}));
 
 const FloorImage = styled('img')({
   width: '100%',
   height: '100%',
-  objectFit: 'contain',
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  zIndex: 1,
+  objectFit: 'contain'
 });
 
 const MarkersContainer = styled(Box)({
@@ -76,30 +77,67 @@ const MarkersContainer = styled(Box)({
   left: 0,
   width: '100%',
   height: '100%',
-  zIndex: 2,
-  pointerEvents: 'none', // Allow clicking through to the image underneath
+  pointerEvents: 'none'
 });
 
-const MapHotspot = styled(Box)(({ theme }) => ({
-  position: 'absolute',
-  borderRadius: '50%',
-  backgroundColor: 'rgba(33, 150, 243, 0.3)',
-  border: '2px solid rgba(33, 150, 243, 0.7)',
-  cursor: 'pointer',
-  transition: 'transform 0.2s, box-shadow 0.2s',
-  transform: 'translate(-50%, -50%)',
-  zIndex: 5,
-  '&:hover': {
-    transform: 'translate(-50%, -50%) scale(1.1)',
-    boxShadow: theme.shadows[2],
-  },
-  pointerEvents: 'auto', // Override parent container's pointerEvents
-}));
+const MarkerItem = styled(Paper)<{ $category?: string; $isUserLocation?: boolean }>`
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 10;
+  background-color: ${(props) => {
+    if (props.$isUserLocation) return '#e91e63';
+    
+    switch (props.$category) {
+      case 'food':
+        return '#ffcdd2';
+      case 'fashion':
+        return '#ffecb3';
+      case 'tech':
+        return '#b2dfdb';
+      case 'goods':
+        return '#a8d3ff';
+      case 'services':
+        return '#c5cae9';
+      case 'supermarket':
+        return '#e1bee7';
+      default:
+        return '#9e9e9e';
+    }
+  }};
+`;
 
-const FacilityHotspot = styled(MapHotspot)(({ theme }) => ({
-  backgroundColor: 'rgba(245, 0, 87, 0.3)',
-  border: '2px solid rgba(245, 0, 87, 0.7)',
-}));
+const FacilityMarker = styled(Paper)<{ $type?: string }>`
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 10;
+  background-color: ${(props) => {
+    switch (props.$type) {
+      case 'elevator':
+        return '#4caf50';
+      case 'toilet':
+        return '#03a9f4';
+      case 'parking':
+        return '#9c27b0';
+      case 'entrance':
+        return '#ff9800';
+      default:
+        return '#607d8b';
+    }
+  }};
+  color: white;
+`;
 
 const StoreTooltip = (props: {
   title: React.ReactNode;
@@ -226,294 +264,205 @@ const facilityTypeConfig = {
   }
 };
 
-// Floor plan images for each floor
-const floorImages = {
-  1: './images/default-floor.svg',
-  2: './images/default-floor.svg',
-  3: './images/default-floor.svg',
+// Function to convert 3D position to percentage-based 2D position
+const getPositionPercentage = (x: number, y: number, z: number) => {
+  // Get percentage based on x and z (ignoring y as it's height)
+  // Assuming a mall with x and z both in range -5 to 5
+  const xPercentage = ((x + 5) / 10) * 100; // Convert from -5,5 to 0%,100%
+  const yPercentage = ((z + 5) / 10) * 100; // Convert from -5,5 to 0%,100% (z is depth)
+  
+  return { x: xPercentage, y: yPercentage };
 };
 
-// Default floor image if specific floor not found
-const defaultFloorImage = './images/default-floor.svg';
-
-// Convert 3D position to display position on the map
-const getMapPosition = (item: Store | Facility): { top: number, left: number } => {
-  // Map x and z coordinates to percentage positions
-  // Assuming original 3D coordinates are in the range [-15, 15]
-  const x = item.position.x;
-  const z = item.position.z;
-  
-  // Normalize from 3D space to floor map canvas space
-  // These values should be calibrated based on your specific floor map layout
-  const leftPos = ((x + 15) / 30) * 850 + 75; // Map to 75-925px range horizontally
-  const topPos = ((z + 15) / 30) * 550 + 75;  // Map to 75-625px range vertically
-  
-  return {
-    top: topPos,
-    left: leftPos
-  };
+// Map each floor to its image
+const floorImages = {
+  1: '/images/floor-1.svg',
+  2: '/images/floor-2.svg',
+  3: '/images/floor-3.svg',
+  default: '/images/default-floor.svg'
 };
 
 interface MallMapProps {
-  currentFloor: number;
+  currentFloor: Floor;
   stores: Store[];
   facilities: Facility[];
-  onStoreSelect: (store: Store) => void;
-  onFacilitySelect: (facility: Facility) => void;
-  onFloorChange: (floor: number) => void;
-  isTouchDevice?: boolean;
-  userLocation?: { x: number, y: number, floor: number };
-  setUserLocation?: (location: { x: number, y: number, floor: number }) => void;
+  userLocation: { x: number; y: number; z: number } | null;
+  setUserLocation: (location: { x: number; y: number; z: number }) => void;
 }
 
-const MallMap: React.FC<MallMapProps> = ({
-  currentFloor,
-  stores,
-  facilities,
-  onStoreSelect,
-  onFacilitySelect,
-  onFloorChange,
-  isTouchDevice = false,
-  userLocation = { x: 0, y: 0, floor: 1 },
-  setUserLocation,
+const MallMap: React.FC<MallMapProps> = ({ 
+  currentFloor, 
+  stores, 
+  facilities, 
+  userLocation,
+  setUserLocation
 }) => {
-  const [selectedItem, setSelectedItem] = useState<Store | Facility | null>(null);
-  const [imageError, setImageError] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
-  const [isSettingLocation, setIsSettingLocation] = useState(false);
+  const navigate = useNavigate();
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
-  // Filter items for current floor
-  const storesOnFloor = stores.filter(store => store.floor === currentFloor);
-  const facilitiesOnFloor = facilities.filter(facility => facility.floor === currentFloor);
+  const handleStoreClick = (id: string) => {
+    navigate(`/store/${id}`);
+  };
 
-  // Reset selected item when changing floors
-  useEffect(() => {
-    setSelectedItem(null);
-    setShowDetails(false);
-  }, [currentFloor]);
+  const handleSetLocation = (x: number, y: number, z: number) => {
+    setUserLocation({ x, y, z });
+  };
 
-  const handleItemClick = (item: Store | Facility, type: 'store' | 'facility') => {
-    setSelectedItem(item);
-    setShowDetails(true);
-    if (type === 'store') {
-      onStoreSelect(item as Store);
-    } else {
-      onFacilitySelect(item as Facility);
+  const handleUpOneFloor = () => {
+    if (userLocation) {
+      const newZ = userLocation.z ? userLocation.z + 1 : 1;
+      handleSetLocation(userLocation.x, userLocation.y, newZ);
     }
   };
 
-  // Change floor handler
-  const handleFloorChange = (direction: 'up' | 'down') => {
-    const maxFloor = 3; // Assuming we have 3 floors
-    let newFloor;
-    
-    if (direction === 'up') {
-      newFloor = currentFloor < maxFloor ? currentFloor + 1 : currentFloor;
-    } else {
-      newFloor = currentFloor > 1 ? currentFloor - 1 : currentFloor;
-    }
-    
-    if (newFloor !== currentFloor) {
-      onFloorChange(newFloor);
+  const handleDownOneFloor = () => {
+    if (userLocation) {
+      const newZ = userLocation.z ? userLocation.z - 1 : 0;
+      handleSetLocation(userLocation.x, userLocation.y, newZ);
     }
   };
 
-  // Select the appropriate floor image
-  const floorImage = floorImages[currentFloor as keyof typeof floorImages] || defaultFloorImage;
-
-  // Handle image loading error
-  const handleImageError = () => {
-    console.error(`Failed to load floor image: ${floorImage}`);
-    setImageError(true);
-  };
-
-  // Handle click on map for setting user location
-  const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isSettingLocation || !setUserLocation) return;
-    
-    // Get click coordinates relative to the image container
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    // Convert to 3D coordinates (roughly approximated)
-    const width = rect.width;
-    const height = rect.height;
-    
-    // Map from pixel to 3D space
-    const xCoord = ((x / width) * 30) - 15;
-    const yCoord = ((y / height) * 30) - 15;
-    
-    // Update user location
-    setUserLocation({
-      x: xCoord,
-      y: yCoord,
-      floor: currentFloor
-    });
-    
-    // Exit location setting mode
-    setIsSettingLocation(false);
-  };
+  // Get the floor image based on floor number
+  const floorImage = floorImages[currentFloor.level as keyof typeof floorImages] || floorImages.default;
 
   return (
     <MapContainer>
       <FloorMap>
         <MapBorder>
-          <FloorLabel variant="h5">Floor {currentFloor}</FloorLabel>
+          <FloorLabel variant="h5">Floor {currentFloor.level}</FloorLabel>
           
-          {setUserLocation && (
-            <Button
-              variant="contained"
-              color={isSettingLocation ? "secondary" : "primary"}
-              size="small"
-              onClick={() => setIsSettingLocation(!isSettingLocation)}
-              sx={{
-                position: 'absolute',
-                top: '10px',
-                right: '70px',
-                zIndex: 10,
-              }}
-            >
-              {isSettingLocation ? 'Cancel' : 'Set My Location'}
-            </Button>
-          )}
-          
-          <FloorImageContainer onClick={handleMapClick}>
-            {/* Floor plan image */}
-            <FloorImage 
-              src={floorImage} 
-              alt={`Floor ${currentFloor} Plan`} 
-              onError={handleImageError} 
-            />
+          <FloorImageContainer>
+            <FloorImage src={floorImage} alt={`Floor ${currentFloor.level} layout`} />
             
-            {/* Location setting helper text */}
-            {isSettingLocation && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                  color: 'white',
-                  padding: 2,
-                  borderRadius: 1,
-                  zIndex: 10,
-                }}
-              >
-                Click anywhere on the map to set your location
-              </Box>
-            )}
-            
-            {/* Markers container */}
             <MarkersContainer>
-              {/* You Are Here marker - only show if user is on current floor */}
-              {userLocation && userLocation.floor === currentFloor && (
-                <YouAreHereMarker
-                  sx={{
-                    top: getMapPosition({ 
-                      position: { 
-                        x: userLocation.x, 
-                        y: 0, 
-                        z: userLocation.y 
-                      } 
-                    } as any).top,
-                    left: getMapPosition({ 
-                      position: { 
-                        x: userLocation.x, 
-                        y: 0, 
-                        z: userLocation.y 
-                      } 
-                    } as any).left,
+              {/* Store markers */}
+              {stores.map((store) => {
+                const position = getPositionPercentage(
+                  store.position.x,
+                  store.position.y,
+                  store.position.z
+                );
+                
+                return (
+                  <MarkerItem
+                    key={store.id}
+                    $category={store.category}
+                    onClick={() => handleStoreClick(store.id)}
+                    onMouseEnter={() => setHoveredItem(store.id)}
+                    onMouseLeave={() => setHoveredItem(null)}
+                    elevation={3}
+                    style={{
+                      left: `${position.x}%`,
+                      top: `${position.y}%`,
+                      transform: 'translate(-50%, -50%)'
+                    }}
+                  >
+                    <Typography variant="subtitle2" align="center">
+                      {store.id.slice(-2)}
+                    </Typography>
+                    
+                    {hoveredItem === store.id && (
+                      <Paper 
+                        elevation={2} 
+                        sx={{ 
+                          position: 'absolute', 
+                          top: '100%', 
+                          left: '50%', 
+                          transform: 'translateX(-50%)',
+                          padding: '4px 8px',
+                          zIndex: 20,
+                          minWidth: '100px'
+                        }}
+                      >
+                        <Typography variant="caption">{store.name}</Typography>
+                      </Paper>
+                    )}
+                  </MarkerItem>
+                );
+              })}
+              
+              {/* Facility markers */}
+              {facilities.map((facility) => {
+                const position = getPositionPercentage(
+                  facility.position.x,
+                  facility.position.y,
+                  facility.position.z
+                );
+                
+                // Icon for the facility type
+                let icon = '?';
+                switch (facility.type) {
+                  case 'elevator':
+                    icon = '⬆';
+                    break;
+                  case 'toilet':
+                    icon = 'WC';
+                    break;
+                  case 'parking':
+                    icon = 'P';
+                    break;
+                  case 'entrance':
+                    icon = '⤭';
+                    break;
+                  default:
+                    icon = '?';
+                }
+                
+                return (
+                  <FacilityMarker
+                    key={facility.id}
+                    $type={facility.type}
+                    onMouseEnter={() => setHoveredItem(facility.id)}
+                    onMouseLeave={() => setHoveredItem(null)}
+                    elevation={3}
+                    style={{
+                      left: `${position.x}%`,
+                      top: `${position.y}%`,
+                      transform: 'translate(-50%, -50%)'
+                    }}
+                  >
+                    <Typography variant="subtitle2" align="center" sx={{ color: 'white' }}>
+                      {icon}
+                    </Typography>
+                    
+                    {hoveredItem === facility.id && (
+                      <Paper 
+                        elevation={2} 
+                        sx={{ 
+                          position: 'absolute', 
+                          top: '100%', 
+                          left: '50%', 
+                          transform: 'translateX(-50%)',
+                          padding: '4px 8px',
+                          zIndex: 20 
+                        }}
+                      >
+                        <Typography variant="caption">{facility.name}</Typography>
+                      </Paper>
+                    )}
+                  </FacilityMarker>
+                );
+              })}
+              
+              {/* User location marker "You are here" */}
+              {userLocation && (
+                <MarkerItem
+                  $isUserLocation={true}
+                  elevation={3}
+                  style={{
+                    left: `${getPositionPercentage(userLocation.x, userLocation.y, userLocation.z).x}%`,
+                    top: `${getPositionPercentage(userLocation.x, userLocation.y, userLocation.z).y}%`,
+                    transform: 'translate(-50%, -50%)',
+                    width: '40px',
+                    height: '40px',
+                    zIndex: 15
                   }}
                 >
-                  <Box
-                    sx={{
-                      width: '20px',
-                      height: '20px',
-                      backgroundColor: 'white',
-                      clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%)',
-                      transform: 'translateY(-2px)',
-                    }}
-                  />
-                </YouAreHereMarker>
+                  <Typography variant="subtitle2" align="center" sx={{ color: 'white' }}>
+                    YOU
+                  </Typography>
+                </MarkerItem>
               )}
-              
-              {/* Store hotspots */}
-              {storesOnFloor.map(store => {
-                const position = getMapPosition(store);
-                const config = storeTypeConfig[store.category as keyof typeof storeTypeConfig] || storeTypeConfig.default;
-                
-                return (
-                  <StoreTooltip
-                    key={`store-${store.id}`}
-                    title={
-                      <Box>
-                        <Typography variant="subtitle2">{store.name}</Typography>
-                        <Typography variant="body2">Category: {store.category}</Typography>
-                        {store.rating && (
-                          <Typography variant="body2">Rating: {store.rating}⭐</Typography>
-                        )}
-                      </Box>
-                    }
-                    arrow
-                    TransitionComponent={Zoom}
-                    placement="top"
-                  >
-                    <MapHotspot
-                      onClick={() => handleItemClick(store, 'store')}
-                      sx={{
-                        top: position.top,
-                        left: position.left,
-                        width: config.size,
-                        height: config.size,
-                        backgroundColor: `${config.color}30`,
-                        border: `2px solid ${config.color}`,
-                      }}
-                    />
-                  </StoreTooltip>
-                );
-              })}
-              
-              {/* Facility hotspots */}
-              {facilitiesOnFloor.map(facility => {
-                const position = getMapPosition(facility);
-                const config = facilityTypeConfig[facility.type as keyof typeof facilityTypeConfig] || facilityTypeConfig.default;
-                
-                return (
-                  <StoreTooltip
-                    key={`facility-${facility.id}`}
-                    title={
-                      <Box>
-                        <Typography variant="subtitle2">{facility.name}</Typography>
-                        <Typography variant="body2">Type: {facility.type}</Typography>
-                      </Box>
-                    }
-                    arrow
-                    TransitionComponent={Zoom}
-                    placement="top"
-                  >
-                    <FacilityHotspot
-                      onClick={() => handleItemClick(facility, 'facility')}
-                      sx={{
-                        top: position.top,
-                        left: position.left,
-                        width: config.size,
-                        height: config.size,
-                        backgroundColor: `${config.color}30`,
-                        border: `2px solid ${config.color}`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      {config.symbol}
-                    </FacilityHotspot>
-                  </StoreTooltip>
-                );
-              })}
             </MarkersContainer>
           </FloorImageContainer>
           
@@ -522,72 +471,49 @@ const MallMap: React.FC<MallMapProps> = ({
             <NavigationButton 
               variant="contained" 
               color="primary" 
-              onClick={() => handleFloorChange('up')}
-              disabled={currentFloor >= 3}
+              onClick={handleUpOneFloor}
+              disabled={!userLocation || currentFloor.level >= 3}
             >
               ↑
             </NavigationButton>
             <Box sx={{ textAlign: 'center', fontWeight: 'bold' }}>
-              {currentFloor}
+              {currentFloor.level}
             </Box>
             <NavigationButton 
               variant="contained" 
               color="primary" 
-              onClick={() => handleFloorChange('down')}
-              disabled={currentFloor <= 1}
+              onClick={handleDownOneFloor}
+              disabled={!userLocation || currentFloor.level <= 1}
             >
               ↓
             </NavigationButton>
           </FloorNavigation>
           
-          {/* Details popup when item is selected */}
-          {selectedItem && showDetails && (
-            <DetailsBox>
-              <Typography variant="h6">{selectedItem.name}</Typography>
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                {selectedItem.description}
-              </Typography>
-              
-              {'category' in selectedItem && (
-                <Typography variant="subtitle2" sx={{ mt: 1 }}>
-                  Category: {selectedItem.category}
-                </Typography>
-              )}
-              
-              {'type' in selectedItem && (
-                <Typography variant="subtitle2" sx={{ mt: 1 }}>
-                  Type: {selectedItem.type}
-                </Typography>
-              )}
-              
-              {'openingHours' in selectedItem && (
-                <Typography variant="subtitle2" sx={{ mt: 1 }}>
-                  Opening Hours: {selectedItem.openingHours}
-                </Typography>
-              )}
-              
-              {'rating' in selectedItem && selectedItem.rating && (
-                <Typography variant="subtitle2" sx={{ mt: 1 }}>
-                  Rating: {selectedItem.rating} ⭐
-                </Typography>
-              )}
-              
-              {'phone' in selectedItem && selectedItem.phone && (
-                <Typography variant="subtitle2" sx={{ mt: 1 }}>
-                  Phone: {selectedItem.phone}
-                </Typography>
-              )}
-              
-              <Button 
-                variant="outlined" 
-                size="small" 
-                sx={{ mt: 2 }}
-                onClick={() => setShowDetails(false)}
-              >
-                Close
-              </Button>
-            </DetailsBox>
-          )}
+          {/* Instructions for clicking */}
+          <Box sx={{ mb: 2, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              Click on a marker to view details. Double-click anywhere on the map to set your location.
+            </Typography>
+          </Box>
+          
+          {/* Click handler for the map to set user location */}
+          <Box 
+            sx={{ 
+              position: 'absolute', 
+              top: 0,
+              left: 0,
+              width: '100%', 
+              height: '100%',
+              zIndex: 5
+            }}
+            onDoubleClick={(e) => {
+              // Get coordinates relative to the container
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = ((e.clientX - rect.left) / rect.width) * 10 - 5; // Convert from 0-100% to -5 to 5
+              const z = ((e.clientY - rect.top) / rect.height) * 10 - 5; // Convert from 0-100% to -5 to 5
+              handleSetLocation(x, 0, z); // Set y to 0 (floor level)
+            }}
+          />
         </MapBorder>
       </FloorMap>
     </MapContainer>

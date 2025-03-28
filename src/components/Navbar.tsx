@@ -4,7 +4,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Box from '@mui/material/Box';
-import { styled } from '@mui/material/styles';
+import { styled, Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import Tooltip from '@mui/material/Tooltip';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
@@ -21,13 +21,13 @@ interface NavbarProps {
   showMenuIcon?: boolean;
 }
 
-const StyledAppBar = styled(AppBar)(({ theme }) => ({
+const StyledAppBar = styled(AppBar)(({ theme }: { theme: Theme }) => ({
   position: 'static',
   boxShadow: theme.shadows[2],
   zIndex: theme.zIndex.drawer + 1,
 }));
 
-const FloorButton = styled(IconButton)(({ theme }) => ({
+const FloorButton = styled(IconButton)(({ theme }: { theme: Theme }) => ({
   margin: theme.spacing(0, 0.5),
   backgroundColor: theme.palette.background.paper,
   borderRadius: theme.shape.borderRadius,
@@ -40,7 +40,7 @@ const FloorButton = styled(IconButton)(({ theme }) => ({
   boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
 }));
 
-const FloorIndicator = styled(Box)(({ theme }) => ({
+const FloorIndicator = styled(Box)(({ theme }: { theme: Theme }) => ({
   padding: theme.spacing(1, 3),
   backgroundColor: theme.palette.primary.main,
   color: theme.palette.primary.contrastText,
@@ -66,7 +66,7 @@ const Navbar: React.FC<NavbarProps> = ({
   const isSmallScreen = useMediaQuery('(max-width:480px)');
 
   const handleFloorUp = () => {
-    if (currentFloor < 3) { // hardcoded totalFloors as 3 since we removed that prop
+    if (currentFloor < 3) {
       setCurrentFloor(currentFloor + 1);
     }
   };
@@ -79,7 +79,7 @@ const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <StyledAppBar>
-      <Toolbar sx={{ justifyContent: 'space-between', padding: (theme) => theme.spacing(1, 2) }}>
+      <Toolbar sx={{ justifyContent: 'space-between', padding: (theme: Theme) => theme.spacing(1, 2) }}>
         <Typography 
           variant={isMobile ? 'h6' : 'h5'} 
           component="div" 

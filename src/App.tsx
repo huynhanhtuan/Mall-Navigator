@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme, responsiveFontSizes } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CssBaseline from '@mui/material/CssBaseline';
-import Box from '@mui/material/Box';
+import { Container, Box, CircularProgress } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
-
-// Components
-import Navbar from './components/Navbar';
+import Header from './components/Header';
+import StoreDetail from './components/StoreDetail';
+import NotFound from './components/NotFound';
+import FloorSelector from './components/FloorSelector';
 import MallMap from './components/MallMap';
 import SearchPanel from './components/SearchPanel';
 import StoreDetails from './components/StoreDetails';
@@ -19,7 +21,7 @@ import StoreDetails from './components/StoreDetails';
 import { mockStores, mockFacilities } from './data/mockData';
 
 // Types
-import { Store, Facility } from './types';
+import { Store, Facility, Floor } from './types';
 
 const createAppTheme = (prefersDarkMode: boolean) => {
   let theme = createTheme({
@@ -161,12 +163,16 @@ const MenuButton = styled(IconButton)(({ theme }) => ({
   },
 }));
 
-function App() {
-  const [currentFloor, setCurrentFloor] = useState(1);
+const App: React.FC = () => {
+  const [loading, setLoading] = useState<boolean>(true);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [floors, setFloors] = useState<Floor[]>([]);
+  const [currentFloorLevel, setCurrentFloorLevel] = useState<number>(1);
+  const [userLocation, setUserLocation] = useState<{ x: number; y: number; z: number } | null>(null);
   const [selectedItem, setSelectedItem] = useState<Store | Facility | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [userLocation, setUserLocation] = useState({ x: 0, y: 0, floor: 1 });
-  
+
   // Use system preference for dark/light mode
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   
@@ -178,15 +184,76 @@ function App() {
     [prefersDarkMode]
   );
 
+  // Initialize data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // In a real app, this would fetch from an API
+        // For now, use mock data
+        setStores(mockStores);
+        setFacilities(mockFacilities);
+
+        // Create floors data
+        const floorLevels = [1, 2, 3];
+        const floorsData: Floor[] = floorLevels.map(level => {
+          const floorStores = mockStores.filter(store => store.floor === level);
+          const floorFacilities = mockFacilities.filter(facility => facility.floor === level);
+          
+          return {
+            id: `floor-${level}`,
+            name: `Floor ${level}`,
+            level,
+            stores: floorStores.map(store => store.id),
+            facilities: floorFacilities.map(facility => facility.id),
+            mapImage: `/images/floor-${level}.svg`
+          };
+        });
+        
+        setFloors(floorsData);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const currentFloor = floors.find(floor => floor.level === currentFloorLevel) || {
+    id: 'default',
+    name: 'Default Floor',
+    level: 1,
+    stores: [],
+    facilities: [],
+    mapImage: '/images/default-floor.svg'
+  };
+  const storesOnCurrentFloor = stores.filter(store => store.floor === currentFloorLevel);
+  const facilitiesOnCurrentFloor = facilities.filter(facility => facility.floor === currentFloorLevel);
+
+  const handleFloorChange = (level: number) => {
+    setCurrentFloorLevel(level);
+  };
+
+  const handleUserLocationChange = (location: { x: number; y: number; z: number }) => {
+    setUserLocation(location);
+    
+    // Determine floor based on z coordinate
+    const floorLevel = Math.floor(location.z) + 1;
+    if (floorLevel >= 1 && floorLevel <= 3) {
+      setCurrentFloorLevel(floorLevel);
+    }
+  };
+
   const handleStoreSelect = (store: Store) => {
     setSelectedItem(store);
-    setCurrentFloor(store.floor);
+    setCurrentFloorLevel(store.floor);
     if (isMobile) setDrawerOpen(false);
   };
 
   const handleFacilitySelect = (facility: Facility) => {
     setSelectedItem(facility);
-    setCurrentFloor(facility.floor);
+    setCurrentFloorLevel(facility.floor);
     if (isMobile) setDrawerOpen(false);
   };
 
@@ -198,87 +265,49 @@ function App() {
     setDrawerOpen(!drawerOpen);
   };
 
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <MainContainer>
-        <Navbar 
-          currentFloor={currentFloor} 
-          setCurrentFloor={setCurrentFloor}
-          toggleDrawer={toggleDrawer}
-          showMenuIcon={isMobile}
-        />
-        
-        <ContentContainer>
-          <>
-            <MapContainer>
-              <MallMap
-                currentFloor={currentFloor}
-                stores={mockStores}
-                facilities={mockFacilities}
-                onStoreSelect={handleStoreSelect}
-                onFacilitySelect={handleFacilitySelect}
-                onFloorChange={setCurrentFloor}
-                isTouchDevice={isMobile}
-                userLocation={userLocation}
-                setUserLocation={setUserLocation}
+      <Router>
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          <Header />
+          <Container maxWidth="lg" sx={{ flexGrow: 1, py: 4 }}>
+            <Routes>
+              <Route 
+                path="/" 
+                element={
+                  <Box>
+                    <FloorSelector 
+                      floors={floors} 
+                      currentFloor={currentFloorLevel} 
+                      onChange={handleFloorChange} 
+                    />
+                    <MallMap 
+                      currentFloor={currentFloor}
+                      stores={storesOnCurrentFloor}
+                      facilities={facilitiesOnCurrentFloor}
+                      userLocation={userLocation}
+                      setUserLocation={handleUserLocationChange}
+                    />
+                  </Box>
+                } 
               />
-              
-              {isMobile && !drawerOpen && (
-                <MenuButton
-                  color="primary"
-                  aria-label="open drawer"
-                  onClick={toggleDrawer}
-                  size="large"
-                >
-                  <MenuIcon />
-                </MenuButton>
-              )}
-            </MapContainer>
-            
-            <Drawer
-              variant={isMobile ? "temporary" : "permanent"}
-              open={isMobile ? drawerOpen : true}
-              onClose={isMobile ? toggleDrawer : undefined}
-              anchor="right"
-              sx={{
-                width: { xs: '85%', sm: '400px' },
-                flexShrink: 0,
-                '& .MuiDrawer-paper': {
-                  width: { xs: '85%', sm: '400px' },
-                  boxSizing: 'border-box',
-                },
-              }}
-            >
-              {isMobile && (
-                <IconButton
-                  onClick={toggleDrawer}
-                  sx={{ alignSelf: 'flex-end', m: 1 }}
-                >
-                  <CloseIcon />
-                </IconButton>
-              )}
-              
-              {selectedItem ? (
-                <StoreDetails 
-                  item={selectedItem} 
-                  onClose={handleCloseDetails}
-                />
-              ) : (
-                <SearchPanel
-                  stores={mockStores}
-                  facilities={mockFacilities}
-                  onStoreSelect={handleStoreSelect}
-                  onFacilitySelect={handleFacilitySelect}
-                  currentFloor={currentFloor}
-                />
-              )}
-            </Drawer>
-          </>
-        </ContentContainer>
-      </MainContainer>
+              <Route path="/store/:id" element={<StoreDetail stores={stores} />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Container>
+        </Box>
+      </Router>
     </ThemeProvider>
   );
-}
+};
 
 export default App; 
